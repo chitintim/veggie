@@ -7,9 +7,22 @@ score slider, tier filters. Same data + scoring as v2.
 import json
 import hashlib
 from collections import Counter
+from pathlib import Path
 from build_db_v2 import CAT_A, CAT_B, CAT_C, CAT_D
 
 OUT = "/sessions/keen-focused-ritchie/mnt/outputs/HK_Vegetarian_Restaurants_Map.html"
+GEOCODE_PATHS = [
+    Path("/sessions/keen-focused-ritchie/mnt/outputs/Veggie/data/geocoded.json"),
+    Path(__file__).resolve().parent / "data" / "geocoded.json",
+    Path(__file__).resolve().parent.parent / "data" / "geocoded.json",
+]
+def load_geocoded():
+    for p in GEOCODE_PATHS:
+        if p.exists():
+            with open(p, encoding="utf-8") as f:
+                return json.load(f)
+    return {}
+GEOCODED = load_geocoded()
 
 DISTRICTS = {
     "central": (22.2820, 114.1577), "sheung wan": (22.2870, 114.1502),
@@ -36,13 +49,17 @@ DISTRICTS = {
 }
 
 
-def coords_for(d_text, name_seed):
-    if not d_text:
-        d_text = "Central"
-    s = d_text.lower()
+def coords_for(name_en, district, name_seed):
+    """Look up geocoded coords first; fall back to district-centroid + jitter."""
+    key = f"{name_en}||{district}"
+    geo = GEOCODED.get(key)
+    if geo and geo.get("lat") is not None:
+        return geo["lat"], geo["lng"]
+    # Fallback — district centroid + small deterministic jitter
+    s = (district or "Central").lower()
     coords = None
-    for key, val in DISTRICTS.items():
-        if key in s:
+    for k, val in DISTRICTS.items():
+        if k in s:
             coords = val
             break
     if coords is None:
@@ -65,7 +82,7 @@ for cat_label, rows, colour in CATS:
     for r in rows:
         name = r.get("Name (EN)", "")
         seed = name + cat_label
-        lat, lng = coords_for(r.get("District", ""), seed)
+        lat, lng = coords_for(name, r.get("District", ""), seed)
         records.append({
             "name_en": name,
             "name_zh": r.get("Name (中文)", ""),
@@ -112,22 +129,7 @@ HTML = r"""<!DOCTYPE html>
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <style>
   /* ─── Palette ─── */
-  :root, [data-theme="dark"] {
-    --bg: #05050a;
-    --bg-lighter: #0d0d18;
-    --bg-elevated: #14141f;
-    --card: rgba(255, 255, 255, 0.04);
-    --card-hover: rgba(255, 255, 255, 0.07);
-    --card-border: rgba(255, 255, 255, 0.08);
-    --card-border-strong: rgba(255, 255, 255, 0.18);
-    --text: #e8e8ef;
-    --text-dim: #9a9aab;
-    --text-mute: #6b6b80;
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
-    --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.45);
-  }
-
-  [data-theme="light"] {
+  :root {
     --bg: #f7f7f3;
     --bg-lighter: #ffffff;
     --bg-elevated: #ffffff;
@@ -140,61 +142,36 @@ HTML = r"""<!DOCTYPE html>
     --text-mute: #8a8a98;
     --shadow-md: 0 4px 14px rgba(20, 20, 31, 0.10);
     --shadow-lg: 0 18px 50px rgba(20, 20, 31, 0.18);
-  }
 
-  /* Categories + tiers — same in both themes (they encode meaning) */
-  :root {
-    --catA: #ffe66d;   /* Chinese 齋 */
-    --catB: #4ecdc4;   /* Modern plant-based */
-    --catC: #ff6b6b;   /* Mainstream */
-    --catD: #a855f7;   /* Indian/ME/Med */
+    --catA: #d4a72c;   /* Chinese 齋 — golden */
+    --catB: #2a9d8f;   /* Modern plant-based — teal (slightly darker for light bg) */
+    --catC: #e35d4b;   /* Mainstream — coral */
+    --catD: #8b5cf6;   /* Indian/ME/Med — purple */
 
-    --tierS: #4ecdc4;
-    --tierA: #8de2da;
-    --tierB: #ffe66d;
-    --tierC: #ffa84a;
-    --tierD: #ff7a7a;
+    --tierS: #2a9d8f;
+    --tierA: #6fbf87;
+    --tierB: #ffd95a;
+    --tierC: #f4974b;
+    --tierD: #e35d4b;
 
-    --glow-teal: rgba(78, 205, 196, 0.12);
-    --glow-purple: rgba(168, 85, 247, 0.10);
+    --glow-teal: rgba(42, 157, 143, 0.10);
+    --glow-purple: rgba(139, 92, 246, 0.08);
 
-    --accent: #4ecdc4;
+    --accent: #2a9d8f;
     --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif; color: var(--text); background: var(--bg); overscroll-behavior: none; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'PingFang TC', 'Microsoft JhengHei', 'Heiti TC', 'Noto Sans TC', sans-serif; color: var(--text); background: var(--bg); overscroll-behavior: none; }
   button { font: inherit; color: inherit; }
   ::selection { background: var(--catB); color: var(--bg); }
 
-  /* ─── Ambient orbs (only on dark mode) ─── */
-  .orb {
-    position: fixed;
-    border-radius: 50%;
-    filter: blur(80px);
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.30;
-  }
-  [data-theme="light"] .orb { display: none; }
-  .orb-1 { width: 540px; height: 540px; background: radial-gradient(circle, var(--glow-teal), transparent 70%); top: -160px; right: -160px; animation: orb 28s ease-in-out infinite; }
-  .orb-2 { width: 420px; height: 420px; background: radial-gradient(circle, var(--glow-purple), transparent 70%); bottom: -140px; left: -140px; animation: orb 32s ease-in-out infinite reverse; }
-  @keyframes orb {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(60px, -40px); }
-  }
-
   /* ─── Layout ───────────────────────────────────── */
-  #app { display: grid; grid-template-columns: 380px 1fr; height: 100dvh; position: relative; z-index: 1; }
+  #app { display: grid; grid-template-columns: 380px 1fr; height: 100dvh; }
   #sidebar {
     background: var(--bg-lighter);
     border-right: 1px solid var(--card-border);
     display: flex; flex-direction: column; min-height: 0;
-  }
-  [data-theme="dark"] #sidebar {
-    background: rgba(13, 13, 24, 0.82);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
   }
   #map { height: 100%; min-height: 0; }
 
@@ -267,10 +244,8 @@ HTML = r"""<!DOCTYPE html>
   .item .zh { color: var(--text-mute); font-size: 12.5px; }
   .item .meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; font-size: 11.5px; color: var(--text-mute); }
   .item .pill { background: var(--card); padding: 2px 8px; border-radius: 9px; }
-  .item .pill.michelin { background: rgba(255, 230, 109, 0.18); color: #806100; }
-  [data-theme="dark"] .item .pill.michelin { color: var(--catA); }
-  .item .pill.closed { background: rgba(255, 122, 122, 0.18); color: #a23434; }
-  [data-theme="dark"] .item .pill.closed { color: var(--tierD); }
+  .item .pill.michelin { background: rgba(212, 167, 44, 0.16); color: #6b4f0a; }
+  .item .pill.closed { background: rgba(227, 93, 75, 0.14); color: #a23a28; }
   .item .cat-pill { color: #062520; padding: 2px 8px; border-radius: 9px; font-size: 11px; font-weight: 600; }
 
   /* ─── Popup (light because Leaflet popups need light bg by default — keep readable) ─── */
@@ -296,8 +271,7 @@ HTML = r"""<!DOCTYPE html>
   .popup .dishes .label { color: var(--text-mute); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
   .popup .ratings { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
   .popup .rating { background: var(--card); padding: 2px 8px; border-radius: 8px; font-size: 11px; color: var(--text); }
-  .popup .rating.michelin { background: rgba(255, 230, 109, 0.22); color: #806100; }
-  [data-theme="dark"] .popup .rating.michelin { color: var(--catA); }
+  .popup .rating.michelin { background: rgba(212, 167, 44, 0.22); color: #6b4f0a; }
   .popup .flag { margin-top: 8px; padding: 6px 10px; background: rgba(255, 230, 109, 0.14); border-left: 3px solid var(--catA); font-size: 11.5px; border-radius: 4px; color: var(--text); }
   .popup .flag.warn { background: rgba(255, 122, 122, 0.14); border-color: var(--tierD); }
   .popup a { color: var(--accent); text-decoration: none; }
@@ -312,7 +286,6 @@ HTML = r"""<!DOCTYPE html>
 
   /* ─── Map controls / legend ──────────────────────── */
   .legend { font-size: 11px; line-height: 1.55; background: var(--bg-elevated); color: var(--text); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--card-border-strong) !important; }
-  [data-theme="dark"] .legend { background: rgba(13, 13, 24, 0.88); }
   .legend .row { display: flex; align-items: center; gap: 6px; }
   .legend .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--bg-elevated); box-shadow: 0 0 0 1px var(--card-border-strong); }
   .legend strong { color: var(--text); }
@@ -345,7 +318,6 @@ HTML = r"""<!DOCTYPE html>
     background: linear-gradient(135deg, var(--glow-teal), transparent 60%);
     opacity: 0.5; pointer-events: none; z-index: 0;
   }
-  [data-theme="light"] .modal::before { opacity: 0.18; }
   @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal-header { padding: 28px 30px 6px; position: relative; z-index: 1; }
   .modal-header h2 { margin: 0 0 12px; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; background: linear-gradient(135deg, var(--catB), var(--catA)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
@@ -424,20 +396,19 @@ HTML = r"""<!DOCTYPE html>
     #map { height: 100dvh; }
 
     /* Floating Action Buttons */
-    #mobile-fab, #mobile-theme-fab {
+    #mobile-fab, #mobile-lang-fab {
       display: flex; position: fixed; right: 14px;
       width: 44px; height: 44px; border-radius: 50%;
       background: var(--bg-elevated); color: var(--accent);
       border: 1px solid var(--card-border-strong);
-      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
       box-shadow: var(--shadow-md);
       align-items: center; justify-content: center;
       font-size: 17px; font-weight: 600;
       cursor: pointer; z-index: 999;
     }
     #mobile-fab { top: 14px; }
-    #mobile-theme-fab { top: 66px; }
-    #mobile-fab:active, #mobile-theme-fab:active { transform: scale(0.92); }
+    #mobile-lang-fab { top: 66px; font-size: 15px; }
+    #mobile-fab:active, #mobile-lang-fab:active { transform: scale(0.92); }
 
     /* Modal as bottom sheet */
     .modal { border-radius: 20px 20px 0 0; max-height: 92dvh; align-self: flex-end; width: 100%; max-width: none; }
@@ -457,66 +428,58 @@ HTML = r"""<!DOCTYPE html>
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-    .orb { display: none; }
   }
 </style>
 </head>
 <body>
 
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
-
 <!-- Welcome / About modal -->
 <div class="modal-bg" id="modal-bg" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal" tabindex="-1">
     <div class="modal-header">
-      <h2 id="modal-title"><span class="leaf">🌱</span> HK Veg</h2>
-      <p class="sub">Vegetarian. In Hong Kong. Books nothing in advance. Pick three.</p>
-      <p class="sub-2">So here's a map of <strong>__COUNT__</strong> veggie-friendly spots, ranked by an actual score (instead of OpenRice's paid-review wild west).</p>
+      <h2 id="modal-title"><span class="leaf">🌱</span> <span data-i18n="title">HK Veg</span></h2>
+      <p class="sub" data-i18n="sub1">Vegetarian. In Hong Kong. Books nothing in advance. Pick three.</p>
+      <p class="sub-2" data-i18n-html="sub2">So here's a map of <strong>__COUNT__</strong> veggie-friendly spots, ranked by an actual score (instead of OpenRice's paid-review wild west).</p>
     </div>
     <div class="modal-body">
       <div class="stat-row">
-        <div class="stat-pill"><span class="num">__COUNT__</span><span class="lbl">places</span></div>
-        <div class="stat-pill"><span class="num">__S__</span><span class="lbl">S-tier</span></div>
-        <div class="stat-pill"><span class="num">__A__</span><span class="lbl">A-tier</span></div>
-        <div class="stat-pill"><span class="num">4</span><span class="lbl">cuisines</span></div>
+        <div class="stat-pill"><span class="num">__COUNT__</span><span class="lbl" data-i18n="placesLabel">places</span></div>
+        <div class="stat-pill"><span class="num">__S__</span><span class="lbl" data-i18n="sTierLabel">S-tier</span></div>
+        <div class="stat-pill"><span class="num">__A__</span><span class="lbl" data-i18n="aTierLabel">A-tier</span></div>
+        <div class="stat-pill"><span class="num">4</span><span class="lbl" data-i18n="cuisinesLabel">cuisines</span></div>
       </div>
-      <p class="how-line">Score weights ratings by review volume, bonuses Michelin/Tatler/Time Out picks, penalises suspect bimodal patterns. <strong>S</strong> 85+ → <strong>D</strong> &lt;55. Closed places sink. Tap anything in the list to fly the map there.</p>
+      <p class="how-line" data-i18n-html="howLine">Score weights ratings by review volume, bonuses Michelin/Tatler/Time Out picks, penalises suspect bimodal patterns. <strong>S</strong> 85+ → <strong>D</strong> &lt;55. Closed places sink. Tap anything in the list to fly the map there.</p>
     </div>
     <div class="modal-footer">
-      <span class="secondary">Hit <span class="info-inline">?</span> anytime for this. Maps · Call · Site buttons in every popup.</span>
-      <button class="btn-primary" id="modal-close">Let's eat</button>
+      <span class="secondary" data-i18n-html="hitInfo">Hit <span class="info-inline">?</span> anytime for this. Maps · Call · Site buttons in every popup.</span>
+      <button class="btn-primary" id="modal-close" data-i18n="letsEatBtn">Let's eat</button>
     </div>
   </div>
 </div>
 
-<button id="mobile-fab" aria-label="About / Help" title="About">?</button>
-<button id="mobile-theme-fab" aria-label="Toggle light/dark" title="Toggle theme">
-  <svg id="mobile-theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-</button>
+<button id="mobile-fab" aria-label="About">?</button>
+<button id="mobile-lang-fab" aria-label="Switch language">中</button>
 
 <div id="app">
   <aside id="sidebar">
     <header id="sidebar-header" role="button" aria-label="Toggle results panel">
-      <h1><span class="leaf">🌱</span> HK Veg <span class="count" id="m-count"></span></h1>
+      <h1><span class="leaf">🌱</span> <span data-i18n="title">HK Veg</span> <span class="count" id="m-count"></span></h1>
       <div class="header-buttons">
-        <button class="icon-btn" id="theme-btn" title="Toggle light/dark" aria-label="Toggle theme">
-          <svg id="theme-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-        </button>
-        <button class="icon-btn" id="info-btn" title="About" aria-label="About">?</button>
+        <button class="icon-btn lang-btn" id="lang-btn" data-i18n-title="langBtnTitle" aria-label="Switch language">中</button>
+        <button class="icon-btn" id="info-btn" data-i18n-title="aboutBtnTitle" aria-label="About">?</button>
       </div>
     </header>
 
     <div class="controls">
-      <input id="search" type="search" placeholder="Search name, dish, district…" autocomplete="off" />
+      <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search name, dish, district…" autocomplete="off" />
 
-      <div class="group-label">Quality (min score)</div>
+      <div class="group-label" data-i18n="qualityLabel">Quality (min score)</div>
       <div class="slider-row">
         <input id="score-slider" type="range" min="0" max="95" step="5" value="0" aria-label="Minimum quality score" />
         <span id="score-val">0</span>
       </div>
 
-      <div class="group-label">Tier</div>
+      <div class="group-label" data-i18n="tierLabel">Tier</div>
       <div class="filter-row">
         <span class="tier-chip S active" data-tier="S">S</span>
         <span class="tier-chip A active" data-tier="A">A</span>
@@ -525,32 +488,32 @@ HTML = r"""<!DOCTYPE html>
         <span class="tier-chip D active" data-tier="D">D</span>
       </div>
 
-      <div class="group-label">Category</div>
+      <div class="group-label" data-i18n="categoryLabel">Category</div>
       <div class="filter-row" id="cat-filters">
-        <span class="chip A active" data-cat="A. Chinese / Buddhist 齋"><span class="dot"></span>Chinese 齋</span>
-        <span class="chip B active" data-cat="B. Modern Plant-Based / Fine"><span class="dot"></span>Plant-based</span>
-        <span class="chip C active" data-cat="C. Mainstream w/ Strong Veg"><span class="dot"></span>Mainstream</span>
-        <span class="chip D active" data-cat="D. Indian / ME / Med"><span class="dot"></span>Indian/ME/Med</span>
+        <span class="chip A active" data-cat="A. Chinese / Buddhist 齋"><span class="dot"></span><span data-i18n="catA">Chinese 齋</span></span>
+        <span class="chip B active" data-cat="B. Modern Plant-Based / Fine"><span class="dot"></span><span data-i18n="catB">Plant-based</span></span>
+        <span class="chip C active" data-cat="C. Mainstream w/ Strong Veg"><span class="dot"></span><span data-i18n="catC">Mainstream</span></span>
+        <span class="chip D active" data-cat="D. Indian / ME / Med"><span class="dot"></span><span data-i18n="catD">Indian/ME/Med</span></span>
       </div>
 
-      <div class="group-label">More filters</div>
+      <div class="group-label" data-i18n="moreFilters">More filters</div>
       <div class="filter-row" style="gap:10px;">
         <select id="veg-filter">
-          <option value="">Any veg type</option>
-          <option value="vegan">Vegan only</option>
-          <option value="jain">Jain options</option>
+          <option value="" data-i18n="anyVegType">Any veg type</option>
+          <option value="vegan" data-i18n="veganOnly">Vegan only</option>
+          <option value="jain" data-i18n="jainOptions">Jain options</option>
         </select>
-        <label class="toggle"><input type="checkbox" id="critic-only"> Critic-recognised</label>
+        <label class="toggle"><input type="checkbox" id="critic-only"> <span data-i18n="criticOnly">Critic-recognised</span></label>
       </div>
       <div class="filter-row" style="gap:10px;">
-        <label class="toggle"><input type="checkbox" id="trusted-only"> Trusted reviews</label>
-        <label class="toggle"><input type="checkbox" id="hide-closed" checked> Hide closed</label>
+        <label class="toggle"><input type="checkbox" id="trusted-only"> <span data-i18n="trustedReviews">Trusted reviews</span></label>
+        <label class="toggle"><input type="checkbox" id="hide-closed" checked> <span data-i18n="hideClosed">Hide closed</span></label>
       </div>
     </div>
 
     <div class="stats">
       <span id="stats-text"></span>
-      <button class="reset" id="reset-btn">reset</button>
+      <button class="reset" id="reset-btn" data-i18n="resetBtn">reset</button>
     </div>
     <div id="list"></div>
   </aside>
@@ -568,67 +531,98 @@ const CAT_COLORS = {
   "D. Indian / ME / Med": "#a855f7",
 };
 
-// ─── Theme handling ───────────────────────────────────────
-const SUN_ICON = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
-const MOON_ICON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+// ─── i18n / strings ───────────────────────────────────────
+const COUNT_TOTAL = __COUNT__;
+const STRINGS = {
+  en: {
+    title: "HK Veg",
+    sub1: "Vegetarian. In Hong Kong. Books nothing in advance. Pick three.",
+    sub2: (n) => `So here's a map of <strong>${n}</strong> veggie-friendly spots, ranked by an actual score (instead of OpenRice's paid-review wild west).`,
+    placesLabel: "places", sTierLabel: "S-tier", aTierLabel: "A-tier", cuisinesLabel: "cuisines",
+    howLine: "Score weights ratings by review volume, bonuses Michelin/Tatler/Time Out picks, penalises suspect bimodal patterns. <strong>S</strong> 85+ → <strong>D</strong> &lt;55. Closed places sink. Tap anything in the list to fly the map there.",
+    hitInfo: 'Hit <span class="info-inline">?</span> anytime for this. Maps · Call · Site buttons in every popup.',
+    letsEatBtn: "Let's eat",
+    searchPlaceholder: "Search name, dish, district…",
+    qualityLabel: "Quality (min score)", tierLabel: "Tier", categoryLabel: "Category", moreFilters: "More filters",
+    anyVegType: "Any veg type", veganOnly: "Vegan only", jainOptions: "Jain options",
+    criticOnly: "Critic-recognised", trustedReviews: "Trusted reviews", hideClosed: "Hide closed",
+    resetBtn: "reset",
+    catA: "Chinese 齋", catB: "Plant-based", catC: "Mainstream", catD: "Indian/ME/Med",
+    statsShown: (s, t) => `${s} of ${t} shown`,
+    countShown: (n) => `· ${n} shown`,
+    nothingMatches: "Nothing matches. Try resetting.",
+    popup: { type: "Type", district: "District", address: "Address", phone: "Phone", web: "Web/IG", hours: "Hours", price: "Price", vegType: "Veg type", booking: "Booking", jainPrefix: " · Jain: ", dishesLabel: "Signature / sample dishes", maps: "Google Maps", call: "Call", website: "Website", status: "Status:", reviewQ: "Review quality:", priceFmt: (p) => `HKD ${p}/person`, tier: (t) => t === "—" ? "closed" : "tier " + t, closed: "closed" },
+    legendTitle: "Categories",
+    legendCats: { catA: "Chinese 齋", catB: "Modern plant-based", catC: "Mainstream w/ veg", catD: "Indian / ME / Med" },
+    legendNote: "Marker size = score.",
+    aboutBtnTitle: "About", themeBtnTitle: "Toggle light/dark", langBtnTitle: "切換中文",
+    langBtnLabel: "中",
+  },
+  zh: {
+    title: "香港素食",
+    sub1: "素食者。住香港。從不訂位。三樣全中。",
+    sub2: (n) => `所以整咗呢張地圖：<strong>${n}</strong> 間素食友善餐廳，按一套真正可信嘅評分排序（唔好再信 OpenRice 嗰啲付費評論）。`,
+    placesLabel: "間", sTierLabel: "S 級", aTierLabel: "A 級", cuisinesLabel: "菜系",
+    howLine: "評分綜合：用戶評分（按評論數加權）＋ 米芝蓮／Tatler／Time Out 加分 − 可疑評論扣分。<strong>S</strong> 85+ → <strong>D</strong> &lt;55。結業餐廳沉底。撳列表項可飛去地圖上對應位置。",
+    hitInfo: '隨時可撳 <span class="info-inline">?</span> 重新查看。每個彈出框都有 地圖・致電・網站 鍵。',
+    letsEatBtn: "開飯",
+    searchPlaceholder: "搜尋餐廳、菜式、地區……",
+    qualityLabel: "質素（最低分）", tierLabel: "等級", categoryLabel: "分類", moreFilters: "更多篩選",
+    anyVegType: "所有素食類型", veganOnly: "純素", jainOptions: "耆那素食",
+    criticOnly: "獲評論機構認可", trustedReviews: "可靠評論", hideClosed: "隱藏結業",
+    resetBtn: "重設",
+    catA: "中式齋菜", catB: "新派純素", catC: "主流餐廳", catD: "印／中東／地中海",
+    statsShown: (s, t) => `顯示 ${s} ／ ${t} 間`,
+    countShown: (n) => `· ${n} 間`,
+    nothingMatches: "冇匹配結果。試吓重設篩選。",
+    popup: { type: "類型", district: "地區", address: "地址", phone: "電話", web: "網站／IG", hours: "營業時間", price: "人均", vegType: "素食類型", booking: "預約", jainPrefix: " · 耆那：", dishesLabel: "招牌／示範菜式", maps: "Google 地圖", call: "致電", website: "網站", status: "狀態：", reviewQ: "評論質素：", priceFmt: (p) => `HKD ${p} ／ 位`, tier: (t) => t === "—" ? "已結業" : t + " 級", closed: "已結業" },
+    legendTitle: "分類",
+    legendCats: { catA: "中式齋菜", catB: "新派純素", catC: "主流（有素食）", catD: "印／中東／地中海" },
+    legendNote: "圖標大小＝分數。",
+    aboutBtnTitle: "關於", themeBtnTitle: "切換淺／深色", langBtnTitle: "Switch to English",
+    langBtnLabel: "EN",
+  },
+};
 
-function getInitialTheme() {
+function getInitialLang() {
   try {
-    const saved = localStorage.getItem("hkv-theme");
-    if (saved === "light" || saved === "dark") return saved;
+    const saved = localStorage.getItem("hkv-lang");
+    if (saved === "en" || saved === "zh") return saved;
   } catch (_) {}
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return "en";
 }
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem("hkv-theme", t); } catch (_) {}
-  // Show the icon for the *opposite* theme (i.e. what clicking will switch to)
-  const iconHtml = t === "dark" ? SUN_ICON : MOON_ICON;
-  const themeIcon = document.getElementById("theme-icon");
-  const mobileThemeIcon = document.getElementById("mobile-theme-icon");
-  if (themeIcon) themeIcon.innerHTML = iconHtml;
-  if (mobileThemeIcon) mobileThemeIcon.innerHTML = iconHtml;
-  // Swap tile layer
-  if (typeof swapTiles === "function") swapTiles(t);
-}
-const initialTheme = getInitialTheme();
-document.documentElement.dataset.theme = initialTheme;
+let currentLang = getInitialLang();
+const t = () => STRINGS[currentLang];
 
 // ─── Map ──────────────────────────────────────────────────
 const isMobile = () => window.matchMedia("(max-width: 800px)").matches;
 const map = L.map("map", { zoomControl: true }).setView([22.305, 114.170], isMobile() ? 10 : 11);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19, subdomains: "abcd",
+}).addTo(map);
 
-const TILES = {
-  light: L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-    attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19, subdomains: "abcd",
-  }),
-  dark: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19, subdomains: "abcd",
-  }),
-};
-let currentTiles = TILES[initialTheme];
-currentTiles.addTo(map);
-function swapTiles(t) {
-  if (currentTiles) map.removeLayer(currentTiles);
-  currentTiles = TILES[t];
-  currentTiles.addTo(map);
-}
-
+let legendDiv = null;
 const legend = L.control({ position: "bottomright" });
 legend.onAdd = function () {
   const div = L.DomUtil.create("div", "leaflet-control");
   div.style.padding = "9px 11px"; div.style.borderRadius = "10px";
   div.style.boxShadow = "var(--shadow-md)";
   div.classList.add("legend");
-  div.innerHTML = `
-    <strong style="font-size:11px;">Categories</strong>
-    <div class="row"><span class="swatch" style="background:${CAT_COLORS["A. Chinese / Buddhist 齋"]}"></span>Chinese 齋</div>
-    <div class="row"><span class="swatch" style="background:${CAT_COLORS["B. Modern Plant-Based / Fine"]}"></span>Modern plant-based</div>
-    <div class="row"><span class="swatch" style="background:${CAT_COLORS["C. Mainstream w/ Strong Veg"]}"></span>Mainstream w/ veg</div>
-    <div class="row"><span class="swatch" style="background:${CAT_COLORS["D. Indian / ME / Med"]}"></span>Indian / ME / Med</div>
-    <small style="display:block;margin-top:4px;max-width:140px;">Marker size = score. Positions approximate.</small>`;
+  legendDiv = div;
+  renderLegend();
   return div;
 };
+function renderLegend() {
+  if (!legendDiv) return;
+  const s = t();
+  legendDiv.innerHTML = `
+    <strong style="font-size:11px;">${s.legendTitle}</strong>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["A. Chinese / Buddhist 齋"]}"></span>${s.legendCats.catA}</div>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["B. Modern Plant-Based / Fine"]}"></span>${s.legendCats.catB}</div>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["C. Mainstream w/ Strong Veg"]}"></span>${s.legendCats.catC}</div>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["D. Indian / ME / Med"]}"></span>${s.legendCats.catD}</div>
+    <small style="display:block;margin-top:4px;max-width:140px;">${s.legendNote}</small>`;
+}
 legend.addTo(map);
 
 function makeIcon(r) {
@@ -683,6 +677,8 @@ function gmapsUrl(r) {
 }
 
 function popupHtml(r) {
+  const s = t();
+  const p = s.popup;
   const flagClass = (r.review_flag || "").toLowerCase().includes("mixed") || (r.review_flag || "").toLowerCase().includes("verify") ? "flag warn" : "flag";
   const showFlag = r.review_flag && r.review_flag.toLowerCase() !== "trusted";
   const statusWarn = (r.status || "").toUpperCase().includes("CLOSED") || (r.status || "").toUpperCase().includes("UNCERTAIN");
@@ -695,44 +691,56 @@ function popupHtml(r) {
   const tierClass = r.tier === "—" ? "dash" : r.tier;
   const tel = phoneTel(r.phone);
   const webHref = websiteHref(r.website);
+  // For zh mode, prefer Chinese name as primary if it exists
+  const primaryName = (currentLang === "zh" && r.name_zh && r.name_zh !== "—") ? r.name_zh : r.name_en;
+  const secondaryName = (currentLang === "zh" && r.name_zh && r.name_zh !== "—") ? r.name_en : (r.name_zh && r.name_zh !== "—" ? r.name_zh : "");
 
   return `<div class="popup">
     <div class="head">
       <div class="score-badge ${tierClass}">
         <span class="score">${r.score === 0 ? "—" : r.score}</span>
-        <span class="tier">${r.tier === "—" ? "closed" : "tier " + r.tier}</span>
+        <span class="tier">${p.tier(r.tier)}</span>
       </div>
       <div style="flex:1;min-width:0;">
-        <h3>${escapeHtml(r.name_en)}</h3>
-        ${r.name_zh && r.name_zh !== "—" ? `<div class="zh">${escapeHtml(r.name_zh)}</div>` : ""}
-        <span class="cat-tag" style="background:${r.color}">${escapeHtml(r.category)}</span>
+        <h3>${escapeHtml(primaryName)}</h3>
+        ${secondaryName ? `<div class="zh">${escapeHtml(secondaryName)}</div>` : ""}
+        <span class="cat-tag" style="background:${r.color}">${escapeHtml(catLabel(r.category))}</span>
       </div>
     </div>
     <dl>
-      <dt>Type</dt><dd>${escapeHtml(r.subtype)}</dd>
-      <dt>District</dt><dd>${escapeHtml(r.district)}</dd>
-      <dt>Address</dt><dd>${escapeHtml(r.address)}</dd>
-      ${r.phone && r.phone !== "—" ? `<dt>Phone</dt><dd>${phoneLink(r.phone)}</dd>` : ""}
-      ${r.website && r.website !== "—" ? `<dt>Web/IG</dt><dd>${websiteLink(r.website)}</dd>` : ""}
-      ${r.hours ? `<dt>Hours</dt><dd>${escapeHtml(r.hours)}</dd>` : ""}
-      <dt>Price</dt><dd>HKD ${escapeHtml(r.price)}/person</dd>
-      <dt>Veg type</dt><dd>${escapeHtml(r.veg_type)}${r.jain && r.jain !== "No" && r.jain !== "—" ? " · Jain: " + escapeHtml(r.jain) : ""}</dd>
-      <dt>Booking</dt><dd>${escapeHtml(r.booking)}</dd>
+      <dt>${p.type}</dt><dd>${escapeHtml(r.subtype)}</dd>
+      <dt>${p.district}</dt><dd>${escapeHtml(r.district)}</dd>
+      <dt>${p.address}</dt><dd>${escapeHtml(r.address)}</dd>
+      ${r.phone && r.phone !== "—" ? `<dt>${p.phone}</dt><dd>${phoneLink(r.phone)}</dd>` : ""}
+      ${r.website && r.website !== "—" ? `<dt>${p.web}</dt><dd>${websiteLink(r.website)}</dd>` : ""}
+      ${r.hours ? `<dt>${p.hours}</dt><dd>${escapeHtml(r.hours)}</dd>` : ""}
+      <dt>${p.price}</dt><dd>${p.priceFmt(escapeHtml(r.price))}</dd>
+      <dt>${p.vegType}</dt><dd>${escapeHtml(r.veg_type)}${r.jain && r.jain !== "No" && r.jain !== "—" ? p.jainPrefix + escapeHtml(r.jain) : ""}</dd>
+      <dt>${p.booking}</dt><dd>${escapeHtml(r.booking)}</dd>
     </dl>
-    ${r.dishes ? `<div class="dishes"><div class="label">Signature / sample dishes</div>${escapeHtml(r.dishes)}</div>` : ""}
+    ${r.dishes ? `<div class="dishes"><div class="label">${p.dishesLabel}</div>${escapeHtml(r.dishes)}</div>` : ""}
     ${ratings.length || (r.michelin && r.michelin !== "—") ? `<div class="ratings">
       ${ratings.map(x => `<span class="rating">${escapeHtml(x)}</span>`).join("")}
       ${r.michelin && r.michelin !== "—" ? `<span class="rating michelin">${escapeHtml(r.michelin)}</span>` : ""}
     </div>` : ""}
     <div class="actions">
-      ${closed ? "" : `<a class="action-btn primary" href="${gmapsUrl(r)}" target="_blank" rel="noopener noreferrer"><span class="icon">📍</span>Google Maps</a>`}
-      ${tel ? `<a class="action-btn" href="tel:${tel}"><span class="icon">📞</span>Call</a>` : ""}
-      ${webHref ? `<a class="action-btn" href="${webHref}" target="_blank" rel="noopener noreferrer"><span class="icon">🔗</span>Website</a>` : ""}
+      ${closed ? "" : `<a class="action-btn primary" href="${gmapsUrl(r)}" target="_blank" rel="noopener noreferrer"><span class="icon">📍</span>${p.maps}</a>`}
+      ${tel ? `<a class="action-btn" href="tel:${tel}"><span class="icon">📞</span>${p.call}</a>` : ""}
+      ${webHref ? `<a class="action-btn" href="${webHref}" target="_blank" rel="noopener noreferrer"><span class="icon">🔗</span>${p.website}</a>` : ""}
     </div>
-    ${statusWarn ? `<div class="flag warn"><strong>Status:</strong> ${escapeHtml(r.status)}</div>` : ""}
-    ${showFlag && !statusWarn ? `<div class="${flagClass}"><strong>Review quality:</strong> ${escapeHtml(r.review_flag)}</div>` : ""}
+    ${statusWarn ? `<div class="flag warn"><strong>${p.status}</strong> ${escapeHtml(r.status)}</div>` : ""}
+    ${showFlag && !statusWarn ? `<div class="${flagClass}"><strong>${p.reviewQ}</strong> ${escapeHtml(r.review_flag)}</div>` : ""}
     ${r.notes ? `<div class="notes-block">${escapeHtml(r.notes)}</div>` : ""}
   </div>`;
+}
+
+function catLabel(catKey) {
+  const s = t();
+  if (catKey.startsWith("A.")) return s.catA;
+  if (catKey.startsWith("B.")) return s.catB;
+  if (catKey.startsWith("C.")) return s.catC;
+  if (catKey.startsWith("D.")) return s.catD;
+  return catKey;
 }
 
 const markers = DATA.map(r => {
@@ -793,6 +801,7 @@ function shortMichelin(s) {
 }
 
 function renderList() {
+  const s = t();
   const list = document.getElementById("list");
   const stats = document.getElementById("stats-text");
   const mCount = document.getElementById("m-count");
@@ -801,24 +810,30 @@ function renderList() {
     if (a.r.score !== b.r.score) return b.r.score - a.r.score;
     return a.r.name_en.localeCompare(b.r.name_en);
   });
-  stats.textContent = `${filtered.length} of ${DATA.length} shown`;
-  if (mCount) mCount.textContent = `· ${filtered.length} shown`;
+  stats.textContent = s.statsShown(filtered.length, DATA.length);
+  if (mCount) mCount.textContent = s.countShown(filtered.length);
+  if (filtered.length === 0) {
+    list.innerHTML = `<div style="padding:32px 18px;text-align:center;color:var(--text-mute);font-size:13px;">${s.nothingMatches}</div>`;
+    return;
+  }
   list.innerHTML = filtered.map(({ r, i }) => {
     const tierClass = r.tier === "—" ? "dash" : r.tier;
     const catShort = r.category.split(".")[0];
     const closed = (r.status||"").toUpperCase().includes("CLOSED");
+    const primary = (currentLang === "zh" && r.name_zh && r.name_zh !== "—") ? r.name_zh : r.name_en;
+    const secondary = (currentLang === "zh" && r.name_zh && r.name_zh !== "—") ? r.name_en : (r.name_zh && r.name_zh !== "—" ? r.name_zh : "");
     return `<div class="item" data-i="${i}" ${closed ? 'style="opacity:0.55"' : ""}>
       <div class="score-badge ${tierClass}">${r.score === 0 ? "—" : Math.round(r.score)}</div>
       <div>
         <div class="row1">
-          <span class="name">${escapeHtml(r.name_en)}</span>
-          ${r.name_zh && r.name_zh !== "—" ? `<span class="zh">${escapeHtml(r.name_zh)}</span>` : ""}
+          <span class="name">${escapeHtml(primary)}</span>
+          ${secondary ? `<span class="zh">${escapeHtml(secondary)}</span>` : ""}
         </div>
         <div class="meta">
           <span class="cat-pill" style="background:${r.color}">${catShort}</span>
           <span class="pill">${escapeHtml(r.district)}</span>
           ${r.michelin && r.michelin !== "—" ? `<span class="pill michelin">${escapeHtml(shortMichelin(r.michelin))}</span>` : ""}
-          ${closed ? `<span class="pill closed">closed</span>` : ""}
+          ${closed ? `<span class="pill closed">${s.popup.closed}</span>` : ""}
         </div>
       </div>
     </div>`;
@@ -892,15 +907,57 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && modalBg.cl
 document.getElementById("info-btn").addEventListener("click", openModal);
 document.getElementById("mobile-fab").addEventListener("click", openModal);
 
-// ─── Theme toggle bindings ─────────────────────────────────
-function toggleTheme() {
-  const cur = document.documentElement.dataset.theme || "dark";
-  setTheme(cur === "dark" ? "light" : "dark");
+// ─── Language toggle bindings ─────────────────────────────
+function toggleLang() {
+  setLang(currentLang === "en" ? "zh" : "en");
 }
-document.getElementById("theme-btn").addEventListener("click", toggleTheme);
-document.getElementById("mobile-theme-fab").addEventListener("click", toggleTheme);
-// Apply initial theme (icon swap; tiles already added above)
-setTheme(initialTheme);
+function setLang(lang) {
+  currentLang = lang;
+  try { localStorage.setItem("hkv-lang", lang); } catch (_) {}
+  applyLanguage();
+}
+function applyLanguage() {
+  const s = t();
+  // text content
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.dataset.i18n;
+    let val = s[key];
+    if (typeof val === "function") val = val(COUNT_TOTAL);
+    if (val !== undefined) el.textContent = val;
+  });
+  // innerHTML (where formatting is allowed)
+  document.querySelectorAll("[data-i18n-html]").forEach(el => {
+    const key = el.dataset.i18nHtml;
+    let val = s[key];
+    if (typeof val === "function") val = val(COUNT_TOTAL);
+    if (val !== undefined) el.innerHTML = val;
+  });
+  // attributes
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    if (s[key]) el.setAttribute("placeholder", s[key]);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach(el => {
+    const key = el.dataset.i18nTitle;
+    if (s[key]) el.setAttribute("title", s[key]);
+  });
+  // Lang button labels
+  const langBtn = document.getElementById("lang-btn");
+  const mobileLangFab = document.getElementById("mobile-lang-fab");
+  if (langBtn) langBtn.textContent = s.langBtnLabel;
+  if (mobileLangFab) mobileLangFab.textContent = s.langBtnLabel;
+  // <html lang> attribute
+  document.documentElement.lang = lang === "zh" ? "zh-Hant-HK" : "en-GB";
+  // Re-render dynamic bits
+  renderLegend();
+  // Re-bind every popup with translated content
+  markers.forEach((m, i) => m.setPopupContent(popupHtml(DATA[i])));
+  // Re-render list (uses t() for stats)
+  renderList();
+}
+document.getElementById("lang-btn").addEventListener("click", toggleLang);
+document.getElementById("mobile-lang-fab").addEventListener("click", toggleLang);
+applyLanguage();
 
 try { if (!localStorage.getItem("hkv-seen-welcome-v4")) openModal(); } catch (_) { openModal(); }
 

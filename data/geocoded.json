@@ -1,0 +1,605 @@
+{
+  "Chi Lin Vegetarian (Long Men Lou)||Diamond Hill": {
+    "lat": 22.3398,
+    "lng": 114.205,
+    "source": "manual",
+    "label": "Chi Lin Nunnery, Diamond Hill"
+  },
+  "Kung Tak Lam Shanghai Vegetarian||Causeway Bay / TST (multi-branch)": {
+    "lat": 22.2806,
+    "lng": 114.1857,
+    "source": "manual",
+    "label": "Sugar+, Causeway Bay"
+  },
+  "Pure Veggie House||Mid-Levels / Central": {
+    "lat": 22.2779,
+    "lng": 114.161,
+    "source": "manual",
+    "label": "Coda Plaza, Garden Road, Mid-Levels"
+  },
+  "Three Virtues Vegetarian||North Point": {
+    "lat": 22.2912,
+    "lng": 114.1994,
+    "source": "manual",
+    "label": "395 King's Rd, North Point"
+  },
+  "LockCha Tea House||Admiralty / Central (Tai Kwun)": {
+    "lat": 22.2785,
+    "lng": 114.1632,
+    "source": "manual",
+    "label": "Hong Kong Park, Admiralty"
+  },
+  "Veggie Kingdom||Tsim Sha Tsui / Causeway Bay": {
+    "lat": 22.2974,
+    "lng": 114.1715,
+    "source": "manual",
+    "label": "VIP Commercial Centre, Canton Rd, TST"
+  },
+  "Po Lin Monastery Vegetarian Dining Hall||Lantau (Ngong Ping)": {
+    "lat": 22.254,
+    "lng": 113.905,
+    "source": "manual",
+    "label": "Po Lin Monastery, Ngong Ping, Lantau"
+  },
+  "Liza Veggies||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "Harvard House, 105-111 Thomson Rd, Wan Chai"
+  },
+  "Oriental Vegetarian (Tung Fong Siu Kee Yuen)||Wan Chai": {
+    "lat": 22.2776,
+    "lng": 114.1719,
+    "source": "manual",
+    "label": "239 Hennessy Rd, Wan Chai"
+  },
+  "Vegelink Vegetarian||North Point": {
+    "lat": 22.2916,
+    "lng": 114.1996,
+    "source": "manual",
+    "label": "Foo Yet Kall Bldg, Java Rd, North Point"
+  },
+  "Paramita Vegetarian||Causeway Bay": {
+    "lat": 22.2802,
+    "lng": 114.186,
+    "source": "manual",
+    "label": "Lee Theatre Plaza, Percival St, CWB"
+  },
+  "Heartful Veggie||San Po Kong / multi-branch": {
+    "lat": 22.3388,
+    "lng": 114.1996,
+    "source": "manual",
+    "label": "Mikiki, Prince Edward Rd East, San Po Kong"
+  },
+  "Veggie4Love||Central": {
+    "lat": 22.2828,
+    "lng": 114.1545,
+    "source": "manual",
+    "label": "Stanley 11, Stanley St, Central"
+  },
+  "Yau Veggie Bistro||Tsuen Wan": {
+    "lat": 22.3711,
+    "lng": 114.1144,
+    "source": "manual",
+    "label": "The Mills, Pak Tin Par St, Tsuen Wan"
+  },
+  "Veggie Palace||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "Heard St, Wan Chai"
+  },
+  "Paradise Veggie||Causeway Bay": {
+    "lat": 22.2802,
+    "lng": 114.186,
+    "source": "manual",
+    "label": "Tower 535, Jaffe Rd, CWB"
+  },
+  "Years (Sham Shui Po)||Sham Shui Po (multi-branch)": {
+    "lat": 22.3303,
+    "lng": 114.1622,
+    "source": "manual",
+    "label": "Fukwah St, Sham Shui Po"
+  },
+  "Fook Luk Sau Vegetarian||Central (Sheung Wan edge)": {
+    "lat": 22.2842,
+    "lng": 114.153,
+    "source": "manual",
+    "label": "8 Tit Hong Lane, Central"
+  },
+  "Kan Kee Vegetarian Food||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "Bowrington Rd Cooked Food Centre, Wan Chai"
+  },
+  "Ying Vegetarian||Yau Ma Tei": {
+    "lat": 22.3115,
+    "lng": 114.1707,
+    "source": "manual",
+    "label": "Yau Ma Tei (Temple St area)"
+  },
+  "Miss Lee||Central": {
+    "lat": 22.2828,
+    "lng": 114.1538,
+    "source": "manual",
+    "label": "The Wellington, Wellington St, Central"
+  },
+  "Sohofama||Central (PMQ)": {
+    "lat": 22.2823,
+    "lng": 114.153,
+    "source": "manual",
+    "label": "PMQ, Aberdeen St, Central"
+  },
+  "Loving Hut (Kowloon Bay)||Kowloon Bay (verify other active branches)": {
+    "lat": 22.3231,
+    "lng": 114.2135,
+    "source": "manual",
+    "label": "Kowloon Bay"
+  },
+  "Yudei||Sham Shui Po": {
+    "lat": 22.3303,
+    "lng": 114.1622,
+    "source": "manual",
+    "label": "Tai Nam St, Sham Shui Po"
+  },
+  "Thai Vegetarian Food||Kowloon City": {
+    "lat": 22.3287,
+    "lng": 114.1885,
+    "source": "manual",
+    "label": "28A Nam Kok Rd, Kowloon City"
+  },
+  "Gaia Veggie Shop||Tsim Sha Tsui (also CWB)": {
+    "lat": 22.2974,
+    "lng": 114.1715,
+    "source": "manual",
+    "label": "Mira Place 1, Nathan Rd, TST"
+  },
+  "Amitabha Buddha Vegetarian||Hung Hom": {
+    "lat": 22.3055,
+    "lng": 114.183,
+    "source": "manual",
+    "label": "Station Lane, Hung Hom"
+  },
+  "Light Vegetarian||Jordan": {
+    "lat": 22.3046,
+    "lng": 114.1715,
+    "source": "manual",
+    "label": "Jordan"
+  },
+  "Treehouse||Multi-branch": {
+    "lat": 22.2828,
+    "lng": 114.1542,
+    "source": "manual",
+    "label": "H Code, Pottinger St, Central"
+  },
+  "Roots Eatery||Wan Chai (Star St)": {
+    "lat": 22.2762,
+    "lng": 114.1726,
+    "source": "manual",
+    "label": "Sun St, Wan Chai"
+  },
+  "MANA! Fast Slow Food||Soho / Wan Chai": {
+    "lat": 22.2829,
+    "lng": 114.1531,
+    "source": "manual",
+    "label": "Staunton St, Soho"
+  },
+  "Kind Kitchen by Green Common||Central": {
+    "lat": 22.2845,
+    "lng": 114.1574,
+    "source": "manual",
+    "label": "Nan Fung Place, Des Voeux Rd Central"
+  },
+  "Green Common (retail+cafe)||Multi-branch": {
+    "lat": 22.2849,
+    "lng": 114.1583,
+    "source": "manual",
+    "label": "IFC Mall, Central (representative)"
+  },
+  "Beet||Central": {
+    "lat": 22.2842,
+    "lng": 114.153,
+    "source": "manual",
+    "label": "Kau U Fong, Central"
+  },
+  "YUAN||Central": {
+    "lat": 22.2837,
+    "lng": 114.1517,
+    "source": "manual",
+    "label": "Chinachem Hollywood Centre, Hollywood Rd"
+  },
+  "Sow Vegan||Kwun Tong": {
+    "lat": 22.3128,
+    "lng": 114.2256,
+    "source": "manual",
+    "label": "Hung Tat Industrial Bldg, Kwun Tong"
+  },
+  "Veda Café & Bar||Central (Ovolo)": {
+    "closed": true
+  },
+  "Isoya||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "83 Wan Chai Rd, Wan Chai"
+  },
+  "Locofama||Sai Ying Pun": {
+    "lat": 22.2858,
+    "lng": 114.1424,
+    "source": "manual",
+    "label": "Fuk Sau Lane, Sai Ying Pun"
+  },
+  "LN Fortunate Coffee||Sai Ying Pun": {
+    "lat": 22.2858,
+    "lng": 114.1424,
+    "source": "manual",
+    "label": "118 Second St, Sai Ying Pun"
+  },
+  "Moksa||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "Harvard Commercial Bldg, Wan Chai"
+  },
+  "Root Vegan||Central": {
+    "lat": 22.2828,
+    "lng": 114.1538,
+    "source": "manual",
+    "label": "112-114 Wellington St, Central"
+  },
+  "Wanaka Cafe||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "Blue House, 8 King Sing St, Wan Chai"
+  },
+  "OVO Cafe||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "Old Wan Chai Market, 1 Wan Chai Rd"
+  },
+  "Mayse Artisan Bakery||Tai Po": {
+    "lat": 22.4515,
+    "lng": 114.1645,
+    "source": "manual",
+    "label": "Tai Mei Tuk, Tai Po"
+  },
+  "Mayse Pizzeria||Jordan": {
+    "lat": 22.3046,
+    "lng": 114.1715,
+    "source": "manual",
+    "label": "Woosung St, Jordan"
+  },
+  "VW Vegan Cafe||Tai Po": {
+    "lat": 22.4515,
+    "lng": 114.1645,
+    "source": "manual",
+    "label": "Plover Cove Garden Arcade, Tai Po"
+  },
+  "The Cakery (Lee Garden)||Causeway Bay": {
+    "lat": 22.2802,
+    "lng": 114.186,
+    "source": "manual",
+    "label": "Lee Garden Two, CWB"
+  },
+  "The Cakery (Landmark)||Central": {
+    "lat": 22.2814,
+    "lng": 114.1582,
+    "source": "manual",
+    "label": "The Landmark, Central"
+  },
+  "Teakha||Sheung Wan": {
+    "lat": 22.287,
+    "lng": 114.1492,
+    "source": "manual",
+    "label": "Tai Ping Shan St, Sheung Wan"
+  },
+  "Plantation Tea Bar||Sai Ying Pun": {
+    "lat": 22.2858,
+    "lng": 114.1424,
+    "source": "manual",
+    "label": "15 High St, Sai Ying Pun"
+  },
+  "Amber||Central": {
+    "lat": 22.2814,
+    "lng": 114.1581,
+    "source": "manual",
+    "label": "Mandarin Oriental Landmark, Central"
+  },
+  "Forum (Fook Lam Moon-affiliated chef)||Causeway Bay": {
+    "lat": 22.2802,
+    "lng": 114.186,
+    "source": "manual",
+    "label": "Sino Plaza, CWB"
+  },
+  "Feuille||Central": {
+    "lat": 22.2828,
+    "lng": 114.1542,
+    "source": "manual",
+    "label": "H Code, Pottinger St, Central"
+  },
+  "Roganic Hong Kong||Causeway Bay": {
+    "lat": 22.2802,
+    "lng": 114.186,
+    "source": "manual",
+    "label": "Sino Plaza, CWB"
+  },
+  "Arcane||Central": {
+    "lat": 22.2826,
+    "lng": 114.1556,
+    "source": "manual",
+    "label": "On Lan St, Central"
+  },
+  "Tate Dining Room||Sheung Wan / Central": {
+    "lat": 22.2848,
+    "lng": 114.15,
+    "source": "manual",
+    "label": "210 Hollywood Rd, Sheung Wan"
+  },
+  "Aaharn||Central (Tai Kwun)": {
+    "lat": 22.2832,
+    "lng": 114.1543,
+    "source": "manual",
+    "label": "Tai Kwun, Hollywood Rd, Central"
+  },
+  "Chaat||Tsim Sha Tsui": {
+    "lat": 22.2935,
+    "lng": 114.1731,
+    "source": "manual",
+    "label": "Rosewood, Victoria Dockside, TST"
+  },
+  "L'Atelier de Joël Robuchon||Central": {
+    "lat": 22.2814,
+    "lng": 114.1582,
+    "source": "manual",
+    "label": "The Landmark, Central"
+  },
+  "Caprice||Central": {
+    "lat": 22.2856,
+    "lng": 114.1581,
+    "source": "manual",
+    "label": "Four Seasons, 8 Finance St, Central"
+  },
+  "Mott 32||Central": {
+    "lat": 22.2835,
+    "lng": 114.1583,
+    "source": "manual",
+    "label": "Standard Chartered Bldg, Des Voeux Rd"
+  },
+  "Lung King Heen||Central": {
+    "lat": 22.2856,
+    "lng": 114.1581,
+    "source": "manual",
+    "label": "Four Seasons, 8 Finance St, Central"
+  },
+  "Tin Lung Heen||Tsim Sha Tsui (Ritz-Carlton)": {
+    "lat": 22.3048,
+    "lng": 114.1599,
+    "source": "manual",
+    "label": "Ritz-Carlton, ICC, West Kowloon"
+  },
+  "Shang Palace||Tsim Sha Tsui (Kowloon Shangri-La)": {
+    "lat": 22.2964,
+    "lng": 114.1819,
+    "source": "manual",
+    "label": "Kowloon Shangri-La, TST East"
+  },
+  "Ming Court||Mong Kok / Wan Chai (Cordis branches)": {
+    "lat": 22.3196,
+    "lng": 114.1685,
+    "source": "manual",
+    "label": "Cordis, 555 Shanghai St, Mong Kok"
+  },
+  "Yan Toh Heen / Lai Ching Heen||Tsim Sha Tsui": {
+    "lat": 22.2942,
+    "lng": 114.1721,
+    "source": "manual",
+    "label": "Regent Hong Kong, TST"
+  },
+  "Duddell's||Central": {
+    "lat": 22.281,
+    "lng": 114.1551,
+    "source": "manual",
+    "label": "Shanghai Tang Mansion, Duddell St"
+  },
+  "Carbone||Central (LKF Tower)": {
+    "lat": 22.2818,
+    "lng": 114.1543,
+    "source": "manual",
+    "label": "LKF Tower, 33 Wyndham St"
+  },
+  "Otto e Mezzo Bombana||Central": {
+    "lat": 22.2814,
+    "lng": 114.1582,
+    "source": "manual",
+    "label": "Alexandra House, Chater Rd"
+  },
+  "Dim Sum Library||Admiralty": {
+    "lat": 22.2774,
+    "lng": 114.1652,
+    "source": "manual",
+    "label": "Pacific Place, Admiralty"
+  },
+  "The Chairman||Central": {
+    "lat": 22.2842,
+    "lng": 114.153,
+    "source": "manual",
+    "label": "3 Kau U Fong, Central"
+  },
+  "Hutong||Tsim Sha Tsui": {
+    "lat": 22.2974,
+    "lng": 114.1715,
+    "source": "manual",
+    "label": "One Peking, TST"
+  },
+  "Rajasthan Rifles||The Peak": {
+    "lat": 22.2706,
+    "lng": 114.1494,
+    "source": "manual",
+    "label": "Peak Galleria, The Peak"
+  },
+  "T'ang Court||Tsim Sha Tsui (Langham)": {
+    "lat": 22.298,
+    "lng": 114.1722,
+    "source": "manual",
+    "label": "The Langham, 8 Peking Rd, TST"
+  },
+  "Sun Tung Lok||Tsim Sha Tsui": {
+    "lat": 22.2978,
+    "lng": 114.1738,
+    "source": "manual",
+    "label": "47 Kimberley Rd, TST"
+  },
+  "Belon||Soho / Central": {
+    "lat": 22.2823,
+    "lng": 114.1527,
+    "source": "manual",
+    "label": "41 Elgin St, Soho, Central"
+  },
+  "ÉPURE||Tsim Sha Tsui (Harbour City)": {
+    "lat": 22.2965,
+    "lng": 114.1685,
+    "source": "manual",
+    "label": "Ocean Terminal, Harbour City, TST"
+  },
+  "Hansik Goo||Central": {
+    "lat": 22.2828,
+    "lng": 114.1538,
+    "source": "manual",
+    "label": "The Wellington, Wellington St, Central"
+  },
+  "Chilli Fagara||Central": {
+    "lat": 22.2832,
+    "lng": 114.1551,
+    "source": "manual",
+    "label": "7 Old Bailey St, Central"
+  },
+  "Paradise Dynasty (multiple)||Multi-branch (IFC, Times Square, etc.)": {
+    "lat": 22.2849,
+    "lng": 114.1583,
+    "source": "manual",
+    "label": "IFC Mall, Central"
+  },
+  "Woodlands Indian Vegetarian||Tsim Sha Tsui East": {
+    "lat": 22.2974,
+    "lng": 114.1815,
+    "source": "manual",
+    "label": "Wing On Plaza, Mody Rd, TST East"
+  },
+  "Sangeetha Vegetarian||Tsim Sha Tsui East": {
+    "lat": 22.2974,
+    "lng": 114.1815,
+    "source": "manual",
+    "label": "Wing On Plaza, Mody Rd, TST East"
+  },
+  "Saravanaa Bhavan||Tsim Sha Tsui": {
+    "lat": 22.298,
+    "lng": 114.1722,
+    "source": "manual",
+    "label": "Golden Dragon Centre, Cameron Rd, TST"
+  },
+  "Kailash Parbat||Tsim Sha Tsui": {
+    "lat": 22.298,
+    "lng": 114.1722,
+    "source": "manual",
+    "label": "Multifield Plaza, Prat Avenue, TST"
+  },
+  "Branto Pure Veg Indian||Tsim Sha Tsui": {
+    "closed": true
+  },
+  "New Punjab Club||Central": {
+    "lat": 22.2826,
+    "lng": 114.1556,
+    "source": "manual",
+    "label": "34 Wyndham St, Central"
+  },
+  "Chaiwala||Central": {
+    "lat": 22.2826,
+    "lng": 114.1556,
+    "source": "manual",
+    "label": "Yu Yuet Lai Bldg, Wyndham St, Central"
+  },
+  "Bombay Dreams||Central": {
+    "lat": 22.2826,
+    "lng": 114.1556,
+    "source": "manual",
+    "label": "Winning Centre, Wyndham St, Central"
+  },
+  "Gaylord Indian Restaurant||Tsim Sha Tsui": {
+    "lat": 22.298,
+    "lng": 114.1722,
+    "source": "manual",
+    "label": "Prince Tower, Peking Rd, TST"
+  },
+  "Tandoor Indian Restaurant||Central": {
+    "lat": 22.2832,
+    "lng": 114.1551,
+    "source": "manual",
+    "label": "1 Lyndhurst Terrace, Central"
+  },
+  "Aladin Mess||Causeway Bay": {
+    "lat": 22.2802,
+    "lng": 114.186,
+    "source": "manual",
+    "label": "Fu Hing Bldg, Russell St, CWB"
+  },
+  "Francis||Wan Chai (Star St)": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "4-6 St Francis St, Wan Chai"
+  },
+  "Maison Libanaise||Soho": {
+    "lat": 22.2823,
+    "lng": 114.1532,
+    "source": "manual",
+    "label": "10 Shelley St, Soho"
+  },
+  "Bedu||Sheung Wan": {
+    "closed": true
+  },
+  "Estiatorio Keia||Central": {
+    "lat": 22.2828,
+    "lng": 114.1538,
+    "source": "manual",
+    "label": "H Queen's, 80 Queen's Rd Central"
+  },
+  "The Optimist||Wan Chai": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "239 Hennessy Rd, Wan Chai"
+  },
+  "Limewood||Repulse Bay": {
+    "lat": 22.2376,
+    "lng": 114.1948,
+    "source": "manual",
+    "label": "The Pulse, Repulse Bay"
+  },
+  "Chutney Tandoor House||Central": {
+    "lat": 22.2832,
+    "lng": 114.1551,
+    "source": "manual",
+    "label": "1 Lyndhurst Terrace, Central"
+  },
+  "Khyber Pass Mess Club||Tsim Sha Tsui": {
+    "lat": 22.298,
+    "lng": 114.1722,
+    "source": "manual",
+    "label": "Chungking Mansions, Nathan Rd, TST"
+  },
+  "Curry Leaf Indian Cuisine||Jordan / Yau Ma Tei": {
+    "lat": 22.3046,
+    "lng": 114.1715,
+    "source": "manual",
+    "label": "Temple St area, Jordan"
+  },
+  "Soil to Soul||Tsim Sha Tsui": {
+    "closed": true
+  },
+  "Greenwoods Raw Cafe||Tsim Sha Tsui": {
+    "closed": true
+  }
+}
