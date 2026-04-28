@@ -319,7 +319,26 @@ HTML = r"""<!DOCTYPE html>
     opacity: 0.5; pointer-events: none; z-index: 0;
   }
   @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .modal-header { padding: 28px 30px 6px; position: relative; z-index: 1; }
+  .lang-picker {
+    display: flex; gap: 6px; padding: 16px 20px 0; position: relative; z-index: 2;
+    justify-content: center;
+  }
+  .lang-pick {
+    flex: 1; max-width: 180px;
+    padding: 9px 14px; border-radius: 10px;
+    border: 1px solid var(--card-border-strong);
+    background: var(--card); color: var(--text-dim);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s var(--spring);
+  }
+  .lang-pick:hover { color: var(--text); border-color: var(--accent); }
+  .lang-pick.active {
+    background: var(--accent); color: white;
+    border-color: var(--accent);
+    box-shadow: 0 4px 14px rgba(42, 157, 143, 0.22);
+  }
+
+  .modal-header { padding: 14px 30px 6px; position: relative; z-index: 1; }
   .modal-header h2 { margin: 0 0 12px; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; background: linear-gradient(135deg, var(--catB), var(--catA)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .modal-header h2 .leaf { -webkit-text-fill-color: initial; }
   .modal-header .sub { color: var(--text); font-size: 15px; line-height: 1.4; margin: 0 0 8px; font-weight: 500; }
@@ -363,25 +382,40 @@ HTML = r"""<!DOCTYPE html>
     #sidebar {
       position: fixed; left: 0; right: 0; bottom: 0;
       height: 60vh; max-height: 88dvh;
-      transform: translateY(calc(100% - 64px));
+      transform: translateY(calc(100% - 88px));
       transition: transform 0.32s var(--spring);
       z-index: 1000; border-right: none;
       border-top: 1px solid var(--card-border-strong);
-      border-top-left-radius: 20px; border-top-right-radius: 20px;
+      border-top-left-radius: 22px; border-top-right-radius: 22px;
       box-shadow: var(--shadow-lg);
       overflow: hidden;
     }
     #sidebar.expanded { transform: translateY(0); height: 92dvh; }
     #sidebar header {
-      padding: 12px 18px 10px; cursor: pointer; position: relative; flex-shrink: 0;
+      padding: 18px 18px 12px;
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      touch-action: none;
+      user-select: none;
     }
     #sidebar header::before {
       content: ""; position: absolute; top: 8px; left: 50%;
       transform: translateX(-50%);
-      width: 38px; height: 4px; border-radius: 2px;
-      background: var(--card-border-strong);
+      width: 56px; height: 6px; border-radius: 3px;
+      background: var(--accent); opacity: 0.55;
+      transition: opacity 0.2s, background 0.2s;
     }
-    #sidebar header h1 { font-size: 16px; padding-top: 10px; }
+    #sidebar header:active::before { opacity: 1; }
+    #sidebar.expanded header::before { background: var(--text-mute); opacity: 0.5; }
+    #sidebar header h1 { font-size: 16px; padding-top: 8px; }
+    /* Subtle bounce hint on first appearance */
+    @keyframes drawer-hint {
+      0% { transform: translateY(calc(100% - 88px)); }
+      40% { transform: translateY(calc(100% - 160px)); }
+      100% { transform: translateY(calc(100% - 88px)); }
+    }
+    #sidebar.hint:not(.expanded) { animation: drawer-hint 1.4s var(--spring) 0.4s 1; }
     .header-buttons { display: none; }
 
     .controls { padding: 10px 16px 8px; gap: 8px; }
@@ -436,6 +470,10 @@ HTML = r"""<!DOCTYPE html>
 <!-- Welcome / About modal -->
 <div class="modal-bg" id="modal-bg" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal" tabindex="-1">
+    <div class="lang-picker" role="tablist" aria-label="Language">
+      <button class="lang-pick" data-lang="en" type="button">English</button>
+      <button class="lang-pick" data-lang="zh" type="button">繁體中文</button>
+    </div>
     <div class="modal-header">
       <h2 id="modal-title"><span class="leaf">🌱</span> <span data-i18n="title">HK Veg</span></h2>
       <p class="sub" data-i18n="sub1">Vegetarian. In Hong Kong. Books nothing in advance. Pick three.</p>
@@ -557,6 +595,9 @@ const STRINGS = {
     legendNote: "Marker size = score.",
     aboutBtnTitle: "About", themeBtnTitle: "Toggle light/dark", langBtnTitle: "切換中文",
     langBtnLabel: "中",
+    michelin3: "★★★ Michelin", michelin2: "★★ Michelin", michelin1: "★ Michelin",
+    bibLabel: "Bib Gourmand", tatlerLabel: "Tatler",
+    pageTitle: "HK Veg — Hong Kong Vegetarian Restaurants",
   },
   zh: {
     title: "香港素食",
@@ -581,6 +622,9 @@ const STRINGS = {
     legendNote: "圖標大小＝分數。",
     aboutBtnTitle: "關於", themeBtnTitle: "切換淺／深色", langBtnTitle: "Switch to English",
     langBtnLabel: "EN",
+    michelin3: "★★★ 米芝蓮", michelin2: "★★ 米芝蓮", michelin1: "★ 米芝蓮",
+    bibLabel: "必比登", tatlerLabel: "Tatler",
+    pageTitle: "香港素食 — 素食友善餐廳地圖",
   },
 };
 
@@ -791,13 +835,14 @@ function applyFilters() {
   renderList();
 }
 
-function shortMichelin(s) {
-  if (s.includes("★★★")) return "★★★";
-  if (s.includes("★★")) return "★★";
-  if (s.includes("★")) return "★";
-  if (s.toLowerCase().includes("bib")) return "Bib";
-  if (s.toLowerCase().includes("tatler")) return "Tatler";
-  return s.slice(0, 18);
+function shortMichelin(str) {
+  const labels = t();
+  if (str.includes("★★★")) return labels.michelin3;
+  if (str.includes("★★")) return labels.michelin2;
+  if (str.includes("★")) return labels.michelin1;
+  if (str.toLowerCase().includes("bib")) return labels.bibLabel;
+  if (str.toLowerCase().includes("tatler")) return labels.tatlerLabel;
+  return str.slice(0, 18);
 }
 
 function renderList() {
@@ -900,7 +945,25 @@ document.getElementById("list").addEventListener("click", e => {
 // ─── Welcome / About modal ─────────────────────────────────
 const modalBg = document.getElementById("modal-bg");
 function openModal() { modalBg.classList.add("open"); document.body.style.overflow = "hidden"; }
-function closeModal() { modalBg.classList.remove("open"); document.body.style.overflow = ""; try { localStorage.setItem("hkv-seen-welcome-v4", "1"); } catch (_) {} }
+function closeModal() {
+  modalBg.classList.remove("open");
+  document.body.style.overflow = "";
+  let isFirst = false;
+  try {
+    isFirst = !localStorage.getItem("hkv-seen-welcome-v4");
+    localStorage.setItem("hkv-seen-welcome-v4", "1");
+  } catch (_) {}
+  // On mobile: bounce-hint the drawer if first time, otherwise auto-expand
+  if (isMobile()) {
+    if (isFirst) {
+      sidebar.classList.add("hint");
+      setTimeout(() => sidebar.classList.remove("hint"), 2000);
+    } else {
+      // Returning user — give them the list right away
+      sidebar.classList.add("expanded");
+    }
+  }
+}
 document.getElementById("modal-close").addEventListener("click", closeModal);
 modalBg.addEventListener("click", e => { if (e.target === modalBg) closeModal(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && modalBg.classList.contains("open")) closeModal(); });
@@ -946,17 +1009,24 @@ function applyLanguage() {
   const mobileLangFab = document.getElementById("mobile-lang-fab");
   if (langBtn) langBtn.textContent = s.langBtnLabel;
   if (mobileLangFab) mobileLangFab.textContent = s.langBtnLabel;
-  // <html lang> attribute
-  document.documentElement.lang = lang === "zh" ? "zh-Hant-HK" : "en-GB";
+  // Welcome modal language-picker active state
+  document.querySelectorAll(".lang-pick").forEach(b => {
+    b.classList.toggle("active", b.dataset.lang === currentLang);
+  });
+  // <html lang> + <title>
+  document.documentElement.lang = currentLang === "zh" ? "zh-Hant-HK" : "en-GB";
+  if (s.pageTitle) document.title = s.pageTitle;
   // Re-render dynamic bits
   renderLegend();
-  // Re-bind every popup with translated content
   markers.forEach((m, i) => m.setPopupContent(popupHtml(DATA[i])));
-  // Re-render list (uses t() for stats)
   renderList();
 }
 document.getElementById("lang-btn").addEventListener("click", toggleLang);
 document.getElementById("mobile-lang-fab").addEventListener("click", toggleLang);
+// Welcome-modal language picker buttons
+document.querySelectorAll(".lang-pick").forEach(b => {
+  b.addEventListener("click", () => setLang(b.dataset.lang));
+});
 applyLanguage();
 
 try { if (!localStorage.getItem("hkv-seen-welcome-v4")) openModal(); } catch (_) { openModal(); }
