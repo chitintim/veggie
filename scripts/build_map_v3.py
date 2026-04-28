@@ -1014,17 +1014,42 @@ document.getElementById("reset-btn").addEventListener("click", () => {
   applyFilters();
 });
 
-document.getElementById("list").addEventListener("click", e => {
-  const item = e.target.closest(".item");
-  if (!item) return;
-  const i = +item.dataset.i;
-  const m = markers[i];
-  document.querySelectorAll(".item.selected").forEach(x => x.classList.remove("selected"));
-  item.classList.add("selected");
-  if (!map.hasLayer(m)) layer.addLayer(m);
-  if (isMobile()) collapseSheet();
-  map.setView(m.getLatLng(), 15);
-  m.openPopup();
+document.getElementById("list").addEventListener("click", function (e) {
+  try {
+    var item = e.target.closest(".item");
+    if (!item) return;
+    var i = +item.dataset.i;
+    var m = markers[i];
+    if (!m) return;
+    // Selected styling
+    var prev = document.querySelectorAll(".item.selected");
+    for (var j = 0; j < prev.length; j++) prev[j].classList.remove("selected");
+    item.classList.add("selected");
+    // Make sure marker is on map
+    if (!map.hasLayer(m)) layer.addLayer(m);
+    // Collapse drawer on mobile — inline so it doesn't depend on collapseSheet being defined
+    if (window.innerWidth <= 800) {
+      var sb = document.getElementById("sidebar");
+      if (sb && sb.classList.contains("expanded")) {
+        sb.classList.remove("expanded");
+        sb.style.transform = "translate3d(0, calc(100% - 104px), 0)";
+        sb.style.webkitTransform = "translate3d(0, calc(100% - 104px), 0)";
+      }
+    }
+    // Fly the map there and open the popup
+    map.setView(m.getLatLng(), 15);
+    m.openPopup();
+  } catch (err) {
+    // If anything fails, still try to open the popup as a last resort
+    console.error("list click failed:", err);
+    try {
+      var item2 = e.target.closest(".item");
+      if (item2) {
+        var idx = +item2.dataset.i;
+        if (markers[idx]) markers[idx].openPopup();
+      }
+    } catch (_) {}
+  }
 });
 
 // ─── Welcome / About modal ─────────────────────────────────
