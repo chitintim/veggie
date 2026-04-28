@@ -388,22 +388,24 @@ HTML = r"""<!DOCTYPE html>
     #app { grid-template-columns: 1fr; grid-template-rows: 1fr; }
     #sidebar {
       position: fixed; left: 0; right: 0; bottom: 0;
-      height: 60vh; max-height: 88dvh;
-      transform: translateY(calc(100% - 88px));
+      height: 92dvh;
+      transform: translateY(calc(100% - 96px));
       transition: transform 0.32s var(--spring);
       z-index: 1000; border-right: none;
       border-top: 1px solid var(--card-border-strong);
       border-top-left-radius: 22px; border-top-right-radius: 22px;
       box-shadow: var(--shadow-lg);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-    #sidebar.expanded { transform: translateY(0); height: 92dvh; }
+    #sidebar.expanded { transform: translateY(0); }
 
     /* Drawer handle — explicit button at the top */
     .drawer-handle {
       display: flex !important;
       width: 100%;
-      height: 36px;
+      height: 40px;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -414,7 +416,6 @@ HTML = r"""<!DOCTYPE html>
       padding: 0;
       cursor: pointer;
       flex-shrink: 0;
-      touch-action: none;
       -webkit-tap-highlight-color: rgba(42, 157, 143, 0.18);
       user-select: none;
       position: relative;

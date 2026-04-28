@@ -60,7 +60,7 @@ COLUMNS = [
 CAT_A = [
     {
         "Name (EN)": "Chi Lin Vegetarian (Long Men Lou)",
-        "Name (中文)": "龍門樓 / 志蓮素齋",
+        "Name (中文)": "志蓮素齋",
         "Sub-type": "Buddhist 齋 / Cantonese",
         "District": "Diamond Hill",
         "Address": "60 Fung Tak Road, Chi Lin Nunnery, Diamond Hill",
@@ -359,7 +359,7 @@ CAT_A = [
     },
     {
         "Name (EN)": "Yau Veggie Bistro",
-        "Name (中文)": "遊",
+        "Name (中文)": "游°",
         "Sub-type": "Modern French-style veg",
         "District": "Tsuen Wan",
         "Address": "Unit 118, 1/F The Mills, Pak Tin Par Street, Tsuen Wan",
@@ -520,7 +520,7 @@ CAT_A = [
     },
     {
         "Name (EN)": "Miss Lee",
-        "Name (中文)": "—",
+        "Name (中文)": "李好純",
         "Sub-type": "Modern Chinese veg bistro",
         "District": "Central",
         "Address": "G/F The Wellington, 198 Wellington St, Central",
@@ -1425,7 +1425,7 @@ CAT_C = [
     },
     {
         "Name (EN)": "Otto e Mezzo Bombana",
-        "Name (中文)": "—",
+        "Name (中文)": "8½ Otto e Mezzo Bombana",
         "Sub-type": "Italian fine dining",
         "District": "Central",
         "Address": "Shop 202, Alexandra House, 18 Chater Rd, Central",
@@ -1590,7 +1590,7 @@ CAT_D = [
     },
     {
         "Name (EN)": "Saravanaa Bhavan",
-        "Name (中文)": "சரவணபவன்",
+        "Name (中文)": "—",
         "Sub-type": "South Indian pure veg (global chain)",
         "District": "Tsim Sha Tsui",
         "Address": "3/F Golden Dragon Centre, 38-40 Cameron Rd, TST",
@@ -1728,7 +1728,7 @@ CAT_D = [
     },
     {
         "Name (EN)": "Gaylord Indian Restaurant",
-        "Name (中文)": "—",
+        "Name (中文)": "爵樂印度餐廳",
         "Sub-type": "North Indian (mixed)",
         "District": "Tsim Sha Tsui",
         "Address": "5/F Prince Tower, 12A Peking Rd, TST",

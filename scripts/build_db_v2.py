@@ -66,7 +66,7 @@ A_NEW = [
     },
     {
         "Name (EN)": "Light Vegetarian",
-        "Name (中文)": "—",
+        "Name (中文)": "光線素食",
         "Sub-type": "Cantonese veg dim sum",
         "District": "Jordan",
         "Address": "Near Jordan MTR (verify exact street address)",
