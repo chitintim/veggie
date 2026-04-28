@@ -9,38 +9,55 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <style>
-  /* ─── Base / palette (nicked from chitintim.github.io) ─── */
-  :root {
+  /* ─── Palette ─── */
+  :root, [data-theme="dark"] {
     --bg: #05050a;
-    --bg-lighter: #0a0a14;
+    --bg-lighter: #0d0d18;
+    --bg-elevated: #14141f;
     --card: rgba(255, 255, 255, 0.04);
     --card-hover: rgba(255, 255, 255, 0.07);
     --card-border: rgba(255, 255, 255, 0.08);
-    --card-border-strong: rgba(255, 255, 255, 0.16);
+    --card-border-strong: rgba(255, 255, 255, 0.18);
     --text: #e8e8ef;
-    --text-dim: #8a8a9b;
+    --text-dim: #9a9aab;
     --text-mute: #6b6b80;
-
-    /* Category accents */
-    --catA: #ffe66d;   /* Chinese 齋 — warm yellow */
-    --catB: #4ecdc4;   /* Modern plant-based — teal */
-    --catC: #ff6b6b;   /* Mainstream — coral */
-    --catD: #a855f7;   /* Indian/ME/Med — purple */
-
-    /* Tier colours */
-    --tierS: #4ecdc4;
-    --tierA: #6fe1d8;
-    --tierB: #ffe66d;
-    --tierC: #ffa84a;
-    --tierD: #ff6b6b;
-
-    --glow-purple: rgba(168, 85, 247, 0.15);
-    --glow-teal: rgba(78, 205, 196, 0.12);
-    --glow-coral: rgba(255, 107, 107, 0.12);
-
-    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
     --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.45);
+  }
+
+  [data-theme="light"] {
+    --bg: #f7f7f3;
+    --bg-lighter: #ffffff;
+    --bg-elevated: #ffffff;
+    --card: rgba(15, 18, 30, 0.04);
+    --card-hover: rgba(15, 18, 30, 0.08);
+    --card-border: rgba(15, 18, 30, 0.10);
+    --card-border-strong: rgba(15, 18, 30, 0.18);
+    --text: #14141f;
+    --text-dim: #5a5a68;
+    --text-mute: #8a8a98;
+    --shadow-md: 0 4px 14px rgba(20, 20, 31, 0.10);
+    --shadow-lg: 0 18px 50px rgba(20, 20, 31, 0.18);
+  }
+
+  /* Categories + tiers — same in both themes (they encode meaning) */
+  :root {
+    --catA: #ffe66d;   /* Chinese 齋 */
+    --catB: #4ecdc4;   /* Modern plant-based */
+    --catC: #ff6b6b;   /* Mainstream */
+    --catD: #a855f7;   /* Indian/ME/Med */
+
+    --tierS: #4ecdc4;
+    --tierA: #8de2da;
+    --tierB: #ffe66d;
+    --tierC: #ffa84a;
+    --tierD: #ff7a7a;
+
+    --glow-teal: rgba(78, 205, 196, 0.12);
+    --glow-purple: rgba(168, 85, 247, 0.10);
+
+    --accent: #4ecdc4;
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -48,15 +65,16 @@
   button { font: inherit; color: inherit; }
   ::selection { background: var(--catB); color: var(--bg); }
 
-  /* ─── Ambient orbs (a single subtle one — not the full chaos) ─── */
+  /* ─── Ambient orbs (only on dark mode) ─── */
   .orb {
     position: fixed;
     border-radius: 50%;
     filter: blur(80px);
     pointer-events: none;
     z-index: 0;
-    opacity: 0.35;
+    opacity: 0.30;
   }
+  [data-theme="light"] .orb { display: none; }
   .orb-1 { width: 540px; height: 540px; background: radial-gradient(circle, var(--glow-teal), transparent 70%); top: -160px; right: -160px; animation: orb 28s ease-in-out infinite; }
   .orb-2 { width: 420px; height: 420px; background: radial-gradient(circle, var(--glow-purple), transparent 70%); bottom: -140px; left: -140px; animation: orb 32s ease-in-out infinite reverse; }
   @keyframes orb {
@@ -67,11 +85,14 @@
   /* ─── Layout ───────────────────────────────────── */
   #app { display: grid; grid-template-columns: 380px 1fr; height: 100dvh; position: relative; z-index: 1; }
   #sidebar {
-    background: rgba(8, 8, 14, 0.78);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    background: var(--bg-lighter);
     border-right: 1px solid var(--card-border);
     display: flex; flex-direction: column; min-height: 0;
+  }
+  [data-theme="dark"] #sidebar {
+    background: rgba(13, 13, 24, 0.82);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
   }
   #map { height: 100%; min-height: 0; }
 
@@ -91,9 +112,9 @@
 
   /* ─── Controls ───────────────────────────────────── */
   .controls { padding: 12px 18px; border-bottom: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 10px; }
-  .controls input[type=search] { padding: 9px 12px; border: 1px solid var(--card-border-strong); border-radius: 10px; font-size: 14px; width: 100%; background: rgba(255,255,255,0.04); color: var(--text); }
+  .controls input[type=search] { padding: 9px 12px; border: 1px solid var(--card-border-strong); border-radius: 10px; font-size: 14px; width: 100%; background: var(--card); color: var(--text); }
   .controls input[type=search]::placeholder { color: var(--text-mute); }
-  .controls input[type=search]:focus { outline: 2px solid var(--catB); outline-offset: -1px; border-color: var(--catB); background: rgba(255,255,255,0.06); }
+  .controls input[type=search]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); background: var(--card-hover); }
 
   .group-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-mute); margin: 4px 0 -2px; font-weight: 600; }
   .filter-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
@@ -118,8 +139,8 @@
   input[type=range] { flex: 1; height: 24px; accent-color: var(--catB); }
   #score-val { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-weight: 700; width: 30px; text-align: right; color: var(--catB); }
 
-  select { padding: 6px 10px; border: 1px solid var(--card-border-strong); border-radius: 10px; font-size: 12.5px; background: rgba(255,255,255,0.04); color: var(--text); min-height: 32px; }
-  select:focus { outline: 2px solid var(--catB); outline-offset: -1px; }
+  select { padding: 6px 10px; border: 1px solid var(--card-border-strong); border-radius: 10px; font-size: 12.5px; background: var(--card); color: var(--text); min-height: 32px; }
+  select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; user-select: none; padding: 4px 0; color: var(--text-dim); }
   label.toggle input { width: 15px; height: 15px; accent-color: var(--catB); }
   label.toggle:hover { color: var(--text); }
@@ -138,14 +159,16 @@
   .item .score-badge { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
   .item .score-badge.S { background: var(--tierS); color: #062520; } .item .score-badge.A { background: var(--tierA); color: #062520; }
   .item .score-badge.B { background: var(--tierB); color: #2a2306; } .item .score-badge.C { background: var(--tierC); color: #2a1606; }
-  .item .score-badge.D { background: var(--tierD); color: #2a0606; } .item .score-badge.dash { background: rgba(255,255,255,0.08); color: var(--text-mute); font-size: 16px; }
+  .item .score-badge.D { background: var(--tierD); color: #2a0606; } .item .score-badge.dash { background: var(--card); color: var(--text-mute); font-size: 16px; }
   .item .row1 { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .item .name { font-weight: 600; font-size: 14px; line-height: 1.3; color: var(--text); }
   .item .zh { color: var(--text-mute); font-size: 12.5px; }
   .item .meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; font-size: 11.5px; color: var(--text-mute); }
-  .item .pill { background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 9px; }
-  .item .pill.michelin { background: rgba(255, 230, 109, 0.14); color: var(--catA); }
-  .item .pill.closed { background: rgba(255, 107, 107, 0.16); color: var(--tierD); }
+  .item .pill { background: var(--card); padding: 2px 8px; border-radius: 9px; }
+  .item .pill.michelin { background: rgba(255, 230, 109, 0.18); color: #806100; }
+  [data-theme="dark"] .item .pill.michelin { color: var(--catA); }
+  .item .pill.closed { background: rgba(255, 122, 122, 0.18); color: #a23434; }
+  [data-theme="dark"] .item .pill.closed { color: var(--tierD); }
   .item .cat-pill { color: #062520; padding: 2px 8px; border-radius: 9px; font-size: 11px; font-weight: 600; }
 
   /* ─── Popup (light because Leaflet popups need light bg by default — keep readable) ─── */
@@ -160,21 +183,22 @@
   .popup .score-badge .tier { font-size: 9.5px; opacity: 0.85; margin-top: 2px; font-weight: 600; }
   .popup .score-badge.S { background: var(--tierS); color: #062520; } .popup .score-badge.A { background: var(--tierA); color: #062520; }
   .popup .score-badge.B { background: var(--tierB); color: #2a2306; } .popup .score-badge.C { background: var(--tierC); color: #2a1606; }
-  .popup .score-badge.D { background: var(--tierD); color: #2a0606; } .popup .score-badge.dash { background: rgba(255,255,255,0.08); color: var(--text-mute); }
+  .popup .score-badge.D { background: var(--tierD); color: #2a0606; } .popup .score-badge.dash { background: var(--card); color: var(--text-mute); }
   .popup h3 { margin: 0 0 2px; font-size: 15px; color: var(--text); }
   .popup .zh { color: var(--text-mute); font-size: 12px; }
-  .popup .cat-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: #062520; margin-top: 4px; font-weight: 600; }
+  .popup .cat-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: #0d1f1d; margin-top: 4px; font-weight: 600; }
   .popup dl { display: grid; grid-template-columns: 80px 1fr; gap: 4px 10px; margin: 8px 0 0; font-size: 12.5px; }
   .popup dt { color: var(--text-mute); }
   .popup dd { margin: 0; word-break: break-word; color: var(--text); }
   .popup .dishes { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--card-border); font-size: 12.5px; color: var(--text); }
   .popup .dishes .label { color: var(--text-mute); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
   .popup .ratings { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
-  .popup .rating { background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 8px; font-size: 11px; color: var(--text); }
-  .popup .rating.michelin { background: rgba(255, 230, 109, 0.16); color: var(--catA); }
-  .popup .flag { margin-top: 8px; padding: 6px 10px; background: rgba(255, 230, 109, 0.1); border-left: 3px solid var(--catA); font-size: 11.5px; border-radius: 4px; color: var(--text); }
-  .popup .flag.warn { background: rgba(255, 107, 107, 0.1); border-color: var(--tierD); }
-  .popup a { color: var(--catB); text-decoration: none; }
+  .popup .rating { background: var(--card); padding: 2px 8px; border-radius: 8px; font-size: 11px; color: var(--text); }
+  .popup .rating.michelin { background: rgba(255, 230, 109, 0.22); color: #806100; }
+  [data-theme="dark"] .popup .rating.michelin { color: var(--catA); }
+  .popup .flag { margin-top: 8px; padding: 6px 10px; background: rgba(255, 230, 109, 0.14); border-left: 3px solid var(--catA); font-size: 11.5px; border-radius: 4px; color: var(--text); }
+  .popup .flag.warn { background: rgba(255, 122, 122, 0.14); border-color: var(--tierD); }
+  .popup a { color: var(--accent); text-decoration: none; }
   .popup a:hover { text-decoration: underline; }
   .popup .actions { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
   .popup .action-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; text-decoration: none; border: 1px solid var(--card-border-strong); background: var(--card); color: var(--text); transition: all 0.25s var(--spring); cursor: pointer; }
@@ -185,14 +209,15 @@
   .popup .notes-block { margin-top: 8px; font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
 
   /* ─── Map controls / legend ──────────────────────── */
-  .legend { font-size: 11px; line-height: 1.55; background: rgba(8, 8, 14, 0.86); color: var(--text); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--card-border-strong) !important; }
+  .legend { font-size: 11px; line-height: 1.55; background: var(--bg-elevated); color: var(--text); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--card-border-strong) !important; }
+  [data-theme="dark"] .legend { background: rgba(13, 13, 24, 0.88); }
   .legend .row { display: flex; align-items: center; gap: 6px; }
-  .legend .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--bg-lighter); box-shadow: 0 0 0 1px rgba(255,255,255,0.2); }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--bg-elevated); box-shadow: 0 0 0 1px var(--card-border-strong); }
   .legend strong { color: var(--text); }
   .legend small { color: var(--text-mute); }
-  .leaflet-control-attribution { font-size: 10px; background: rgba(8,8,14,0.7) !important; color: var(--text-mute) !important; }
+  .leaflet-control-attribution { font-size: 10px; background: var(--bg-elevated) !important; color: var(--text-mute) !important; }
   .leaflet-control-attribution a { color: var(--text-dim) !important; }
-  .leaflet-control-zoom a { background: var(--bg-lighter) !important; color: var(--text) !important; border-color: var(--card-border-strong) !important; }
+  .leaflet-control-zoom a { background: var(--bg-elevated) !important; color: var(--text) !important; border-color: var(--card-border-strong) !important; }
   .leaflet-control-zoom a:hover { background: var(--card-hover) !important; }
 
   /* ─── Welcome modal ──────────────────────────────── */
@@ -205,44 +230,45 @@
   .modal-bg.open { display: flex; animation: fade-in 0.2s ease-out; }
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
   .modal {
-    background: var(--bg-lighter);
+    background: var(--bg-elevated);
     border: 1px solid var(--card-border-strong);
-    border-radius: 18px;
-    max-width: 560px; width: 100%; max-height: 92vh; overflow-y: auto;
+    border-radius: 20px;
+    max-width: 480px; width: 100%; max-height: 92vh; overflow-y: auto;
     box-shadow: var(--shadow-lg);
     animation: slide-up 0.3s var(--spring);
     position: relative;
   }
   .modal::before {
-    content: ""; position: absolute; inset: 0; border-radius: 18px;
-    background: linear-gradient(135deg, var(--glow-teal), transparent 50%, var(--glow-purple));
-    opacity: 0.4; pointer-events: none; z-index: 0;
+    content: ""; position: absolute; inset: 0; border-radius: 20px;
+    background: linear-gradient(135deg, var(--glow-teal), transparent 60%);
+    opacity: 0.5; pointer-events: none; z-index: 0;
   }
+  [data-theme="light"] .modal::before { opacity: 0.18; }
   @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .modal-header { padding: 26px 28px 14px; position: relative; z-index: 1; }
-  .modal-header h2 { margin: 0 0 6px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--catB), var(--catA), var(--catC)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .modal-header { padding: 28px 30px 6px; position: relative; z-index: 1; }
+  .modal-header h2 { margin: 0 0 12px; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; background: linear-gradient(135deg, var(--catB), var(--catA)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .modal-header h2 .leaf { -webkit-text-fill-color: initial; }
-  .modal-header .sub { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
-  .modal-body { padding: 0 28px 16px; font-size: 13.5px; line-height: 1.6; color: var(--text); position: relative; z-index: 1; }
-  .modal-body h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--catB); margin: 18px 0 8px; }
-  .modal-body p { margin: 0 0 10px; }
-  .modal-body ul { margin: 0 0 10px; padding-left: 18px; }
-  .modal-body li { margin-bottom: 5px; color: var(--text-dim); }
-  .modal-body li strong { color: var(--text); }
-  .modal-body code { background: rgba(78, 205, 196, 0.12); padding: 1px 6px; border-radius: 4px; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: var(--catB); }
-  .stat-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+  .modal-header .sub { color: var(--text); font-size: 15px; line-height: 1.4; margin: 0 0 8px; font-weight: 500; }
+  .modal-header .sub-2 { color: var(--text-dim); font-size: 13.5px; line-height: 1.55; margin: 0; }
+  .modal-header .sub-2 strong { color: var(--text); }
+  .modal-body { padding: 4px 30px 8px; font-size: 13.5px; line-height: 1.6; color: var(--text); position: relative; z-index: 1; }
+  .modal-body p { margin: 0; }
+  .how-line { color: var(--text-dim); font-size: 12.5px; line-height: 1.55; margin-top: 14px !important; }
+  .how-line strong { color: var(--text); font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 11.5px; padding: 1px 5px; border-radius: 4px; background: var(--card); border: 1px solid var(--card-border); }
+  .stat-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 0; }
   .stat-pill {
     display: inline-flex; flex-direction: column; align-items: flex-start;
-    padding: 10px 14px; border-radius: 12px;
+    padding: 11px 14px; border-radius: 12px;
     background: var(--card); border: 1px solid var(--card-border);
-    flex: 1; min-width: 86px;
+    flex: 1; min-width: 78px;
     transition: all 0.3s var(--spring);
   }
-  .stat-pill:hover { transform: translateY(-2px); border-color: var(--card-border-strong); }
-  .stat-pill .num { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 22px; font-weight: 800; line-height: 1; color: var(--catB); }
-  .stat-pill .lbl { font-size: 10px; color: var(--text-mute); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .modal-footer { padding: 14px 28px 24px; display: flex; gap: 12px; justify-content: flex-end; align-items: center; flex-wrap: wrap; position: relative; z-index: 1; }
-  .modal-footer .secondary { color: var(--text-mute); font-size: 12px; }
+  .stat-pill:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .stat-pill .num { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 22px; font-weight: 800; line-height: 1; color: var(--accent); }
+  .stat-pill .lbl { font-size: 10px; color: var(--text-mute); margin-top: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .modal-footer { padding: 16px 30px 26px; display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; position: relative; z-index: 1; }
+  .modal-footer .secondary { color: var(--text-mute); font-size: 11.5px; line-height: 1.4; flex: 1; min-width: 180px; }
+  .info-inline { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--card-border-strong); align-items: center; justify-content: center; font-size: 10px; color: var(--accent); vertical-align: middle; line-height: 1; }
   .btn-primary {
     background: linear-gradient(135deg, var(--catB), var(--catD));
     color: white; border: none;
@@ -295,11 +321,11 @@
 
     #map { height: 100dvh; }
 
-    /* Floating Action Button */
-    #mobile-fab {
-      display: flex; position: fixed; top: 14px; right: 14px;
+    /* Floating Action Buttons */
+    #mobile-fab, #mobile-theme-fab {
+      display: flex; position: fixed; right: 14px;
       width: 44px; height: 44px; border-radius: 50%;
-      background: rgba(8, 8, 14, 0.86); color: var(--catB);
+      background: var(--bg-elevated); color: var(--accent);
       border: 1px solid var(--card-border-strong);
       backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
       box-shadow: var(--shadow-md);
@@ -307,7 +333,9 @@
       font-size: 17px; font-weight: 600;
       cursor: pointer; z-index: 999;
     }
-    #mobile-fab:active { transform: scale(0.92); }
+    #mobile-fab { top: 14px; }
+    #mobile-theme-fab { top: 66px; }
+    #mobile-fab:active, #mobile-theme-fab:active { transform: scale(0.92); }
 
     /* Modal as bottom sheet */
     .modal { border-radius: 20px 20px 0 0; max-height: 92dvh; align-self: flex-end; width: 100%; max-width: none; }
@@ -341,59 +369,39 @@
   <div class="modal" tabindex="-1">
     <div class="modal-header">
       <h2 id="modal-title"><span class="leaf">🌱</span> HK Veg</h2>
-      <p class="sub">Hi. So finding a decent veggie restaurant in Hong Kong shouldn't be this annoying — OpenRice is full of paid 5★ reviews, HappyCow recycles the same 10 expat spots, Google reviews split bimodal between 5s and 1s with nothing in between. So I roped in <a href="https://anthropic.com" target="_blank" rel="noopener noreferrer" style="color:var(--catB);">Claude</a> and built this.</p>
+      <p class="sub">Vegetarian. In Hong Kong. Books nothing in advance. Pick three.</p>
+      <p class="sub-2">So here's a map of <strong>103</strong> veggie-friendly spots, ranked by an actual score (instead of OpenRice's paid-review wild west).</p>
     </div>
     <div class="modal-body">
       <div class="stat-row">
         <div class="stat-pill"><span class="num">103</span><span class="lbl">places</span></div>
         <div class="stat-pill"><span class="num">12</span><span class="lbl">S-tier</span></div>
         <div class="stat-pill"><span class="num">24</span><span class="lbl">A-tier</span></div>
-        <div class="stat-pill"><span class="num">4</span><span class="lbl">categories</span></div>
+        <div class="stat-pill"><span class="num">4</span><span class="lbl">cuisines</span></div>
       </div>
-
-      <h3>what's in it</h3>
-      <ul>
-        <li><strong style="color:var(--catA)">Chinese 齋</strong> — Buddhist veg halls, mock-meat, traditional dim sum.</li>
-        <li><strong style="color:var(--catB)">Modern plant-based</strong> — the newer-wave vegan/vegetarian places.</li>
-        <li><strong style="color:var(--catC)">Mainstream with a real veg menu</strong> — non-veg restaurants where the veg side isn't an afterthought.</li>
-        <li><strong style="color:var(--catD)">Indian / ME / Med</strong> — pure-veg & naturally veg-heavy cuisines.</li>
-      </ul>
-
-      <h3>how the score works</h3>
-      <p>Each place gets a <strong>0–100 score</strong> that's actually defensible:</p>
-      <ul>
-        <li>Bayesian-weighted ratings across Google, OpenRice & HappyCow — so a 4.9★ with 8 reviews can't outrank a 4.5★ with 800.</li>
-        <li>Critic bonus: <code>+15</code> ★★★ Michelin, <code>+10</code> ★★, <code>+7</code> ★, <code>+4</code> Bib/Tatler/Time Out.</li>
-        <li>Penalties for suspect reviews (those bimodal OpenRice patterns) and dodgy operating status.</li>
-      </ul>
-      <p>Tiers: <strong style="color:var(--tierS)">S</strong> (85+), <strong style="color:var(--tierA)">A</strong> (75–84), <strong style="color:var(--tierB)">B</strong> (65–74), <strong style="color:var(--tierC)">C</strong> (55–64), <strong style="color:var(--tierD)">D</strong> (&lt;55). Closed places sink to the bottom.</p>
-
-      <h3>how to use it</h3>
-      <ul>
-        <li>List sorts S → D. Tap anything to fly the map there.</li>
-        <li>Slide the score, hit tier/category chips, search by name or dish.</li>
-        <li>"Critic-recognised" filters to Michelin/Tatler/Time Out only.</li>
-        <li>"Trusted reviews" hides places with iffy review patterns.</li>
-        <li>Every popup has a Google Maps button. Phone & website links are tappable.</li>
-      </ul>
-
-      <p style="color:var(--text-mute);font-size:12px;margin-top:16px;">Compiled April 2026 with Claude doing the heavy lifting. Restaurant details shift constantly in HK — phone or check Instagram before high-stakes plans. — <a href="https://chitintim.github.io" target="_blank" rel="noopener noreferrer" style="color:var(--text-dim);">Tim</a></p>
+      <p class="how-line">Score weights ratings by review volume, bonuses Michelin/Tatler/Time Out picks, penalises suspect bimodal patterns. <strong>S</strong> 85+ → <strong>D</strong> &lt;55. Closed places sink. Tap anything in the list to fly the map there.</p>
     </div>
     <div class="modal-footer">
-      <span class="secondary">Tap <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;border:1px solid var(--card-border-strong);align-items:center;justify-content:center;font-size:11px;color:var(--catB);vertical-align:middle;">?</span> anytime</span>
+      <span class="secondary">Hit <span class="info-inline">?</span> anytime for this. Maps · Call · Site buttons in every popup.</span>
       <button class="btn-primary" id="modal-close">Let's eat</button>
     </div>
   </div>
 </div>
 
 <button id="mobile-fab" aria-label="About / Help" title="About">?</button>
+<button id="mobile-theme-fab" aria-label="Toggle light/dark" title="Toggle theme">
+  <svg id="mobile-theme-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+</button>
 
 <div id="app">
   <aside id="sidebar">
     <header id="sidebar-header" role="button" aria-label="Toggle results panel">
       <h1><span class="leaf">🌱</span> HK Veg <span class="count" id="m-count"></span></h1>
       <div class="header-buttons">
-        <button class="icon-btn" id="info-btn" title="About / methodology" aria-label="About">?</button>
+        <button class="icon-btn" id="theme-btn" title="Toggle light/dark" aria-label="Toggle theme">
+          <svg id="theme-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+        </button>
+        <button class="icon-btn" id="info-btn" title="About" aria-label="About">?</button>
       </div>
     </header>
 
@@ -458,13 +466,51 @@ const CAT_COLORS = {
   "D. Indian / ME / Med": "#a855f7",
 };
 
-// ─── Map (light tile, dark UI) ────────────────────────────
+// ─── Theme handling ───────────────────────────────────────
+const SUN_ICON = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+const MOON_ICON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem("hkv-theme");
+    if (saved === "light" || saved === "dark") return saved;
+  } catch (_) {}
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("hkv-theme", t); } catch (_) {}
+  // Show the icon for the *opposite* theme (i.e. what clicking will switch to)
+  const iconHtml = t === "dark" ? SUN_ICON : MOON_ICON;
+  const themeIcon = document.getElementById("theme-icon");
+  const mobileThemeIcon = document.getElementById("mobile-theme-icon");
+  if (themeIcon) themeIcon.innerHTML = iconHtml;
+  if (mobileThemeIcon) mobileThemeIcon.innerHTML = iconHtml;
+  // Swap tile layer
+  if (typeof swapTiles === "function") swapTiles(t);
+}
+const initialTheme = getInitialTheme();
+document.documentElement.dataset.theme = initialTheme;
+
+// ─── Map ──────────────────────────────────────────────────
 const isMobile = () => window.matchMedia("(max-width: 800px)").matches;
 const map = L.map("map", { zoomControl: true }).setView([22.305, 114.170], isMobile() ? 10 : 11);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-  attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19,
-  subdomains: "abcd",
-}).addTo(map);
+
+const TILES = {
+  light: L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19, subdomains: "abcd",
+  }),
+  dark: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19, subdomains: "abcd",
+  }),
+};
+let currentTiles = TILES[initialTheme];
+currentTiles.addTo(map);
+function swapTiles(t) {
+  if (currentTiles) map.removeLayer(currentTiles);
+  currentTiles = TILES[t];
+  currentTiles.addTo(map);
+}
 
 const legend = L.control({ position: "bottomright" });
 legend.onAdd = function () {
@@ -737,13 +783,24 @@ document.getElementById("list").addEventListener("click", e => {
 // ─── Welcome / About modal ─────────────────────────────────
 const modalBg = document.getElementById("modal-bg");
 function openModal() { modalBg.classList.add("open"); document.body.style.overflow = "hidden"; }
-function closeModal() { modalBg.classList.remove("open"); document.body.style.overflow = ""; try { localStorage.setItem("hkv-seen-welcome-v3", "1"); } catch (_) {} }
+function closeModal() { modalBg.classList.remove("open"); document.body.style.overflow = ""; try { localStorage.setItem("hkv-seen-welcome-v4", "1"); } catch (_) {} }
 document.getElementById("modal-close").addEventListener("click", closeModal);
 modalBg.addEventListener("click", e => { if (e.target === modalBg) closeModal(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && modalBg.classList.contains("open")) closeModal(); });
 document.getElementById("info-btn").addEventListener("click", openModal);
 document.getElementById("mobile-fab").addEventListener("click", openModal);
-try { if (!localStorage.getItem("hkv-seen-welcome-v3")) openModal(); } catch (_) { openModal(); }
+
+// ─── Theme toggle bindings ─────────────────────────────────
+function toggleTheme() {
+  const cur = document.documentElement.dataset.theme || "dark";
+  setTheme(cur === "dark" ? "light" : "dark");
+}
+document.getElementById("theme-btn").addEventListener("click", toggleTheme);
+document.getElementById("mobile-theme-fab").addEventListener("click", toggleTheme);
+// Apply initial theme (icon swap; tiles already added above)
+setTheme(initialTheme);
+
+try { if (!localStorage.getItem("hkv-seen-welcome-v4")) openModal(); } catch (_) { openModal(); }
 
 // ─── Mobile bottom-sheet ───────────────────────────────────
 const sidebar = document.getElementById("sidebar");
