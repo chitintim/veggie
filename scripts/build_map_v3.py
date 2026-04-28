@@ -411,56 +411,37 @@ HTML = r"""<!DOCTYPE html>
       -webkit-transform: translate3d(0, 0, 0);
     }
 
-    /* Drawer handle — big tap target at the top */
-    .drawer-handle {
-      display: flex !important;
-      width: 100%;
-      height: 48px;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      background: transparent;
-      border: none;
-      border-radius: 22px 22px 0 0;
-      padding: 0;
-      cursor: pointer;
+    /* Header is now THE tap target — replaces the separate drawer-handle button.
+       Pill sits visually at the top; the entire header surface toggles on tap. */
+    #sidebar header {
+      padding: 14px 16px 12px;
+      position: relative;
       flex-shrink: 0;
-      -webkit-tap-highlight-color: rgba(42, 157, 143, 0.22);
+      cursor: pointer;
+      -webkit-tap-highlight-color: rgba(42, 157, 143, 0.18);
       user-select: none;
       -webkit-user-select: none;
-      position: relative;
-      z-index: 10;
-      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    .drawer-handle:active { background: rgba(42, 157, 143, 0.06); }
     .handle-pill {
-      display: block;
+      display: block; align-self: center;
       width: 60px; height: 6px; border-radius: 3px;
-      background: var(--accent); opacity: 0.7;
+      background: var(--accent); opacity: 0.75;
       transition: all 0.2s;
-      pointer-events: none;  /* iOS: forward taps to parent button */
-    }
-    .drawer-handle:active .handle-pill { opacity: 1; transform: scaleX(1.1); }
-    .handle-chevron {
-      font-size: 14px; color: var(--accent); opacity: 0.65;
-      line-height: 0.6; font-weight: 700;
-      transition: transform 0.3s var(--spring), opacity 0.2s;
-      transform-origin: center;
-      pointer-events: none;  /* iOS: forward taps to parent button */
-    }
-    #sidebar.expanded .handle-chevron {
-      transform: rotate(180deg);
-      opacity: 0.5;
-    }
-    #sidebar.expanded .handle-pill { background: var(--text-mute); opacity: 0.4; }
-
-    #sidebar header {
-      padding: 4px 18px 8px;
-      position: relative;
+      pointer-events: none;
       flex-shrink: 0;
     }
-    #sidebar header h1 { font-size: 16px; }
+    #sidebar header:active .handle-pill { opacity: 1; transform: scaleX(1.08); }
+    #sidebar.expanded .handle-pill { background: var(--text-mute); opacity: 0.4; }
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+    }
+    .header-row h1 { font-size: 16px; }
+    /* Make sure the inner buttons swallow their own clicks (they have their own actions) */
+    .header-row .icon-btn { pointer-events: auto; }
 
     /* Filter-toggle button on mobile, hides the panel by default */
     .filter-toggle {
@@ -576,16 +557,14 @@ HTML = r"""<!DOCTYPE html>
 
 <div id="app">
   <aside id="sidebar">
-    <button class="drawer-handle" id="drawer-handle" type="button" aria-label="Toggle drawer"
-            onclick="toggleDrawer()">
-      <span class="handle-pill"></span>
-      <span class="handle-chevron" id="handle-chevron">⌃</span>
-    </button>
-    <header id="sidebar-header">
-      <h1><span class="leaf">🌱</span> <span data-i18n="title">HK Veg</span> <span class="count" id="m-count"></span></h1>
-      <div class="header-buttons">
-        <button class="icon-btn lang-btn" id="lang-btn" data-i18n-title="langBtnTitle" aria-label="Switch language">中</button>
-        <button class="icon-btn" id="info-btn" data-i18n-title="aboutBtnTitle" aria-label="About">?</button>
+    <header id="sidebar-header" onclick="window.toggleDrawer && toggleDrawer(event)">
+      <span class="handle-pill" aria-hidden="true"></span>
+      <div class="header-row">
+        <h1><span class="leaf">🌱</span> <span data-i18n="title">HK Veg</span> <span class="count" id="m-count"></span></h1>
+        <div class="header-buttons">
+          <button class="icon-btn lang-btn" id="lang-btn" data-i18n-title="langBtnTitle" aria-label="Switch language">中</button>
+          <button class="icon-btn" id="info-btn" data-i18n-title="aboutBtnTitle" aria-label="About">?</button>
+        </div>
       </div>
     </header>
 
@@ -1128,8 +1107,7 @@ if (!hasSeenWelcome) {
 // ─── Mobile bottom-sheet ───────────────────────────────────
 const sidebar = document.getElementById("sidebar");
 const header = document.getElementById("sidebar-header");
-const drawerHandle = document.getElementById("drawer-handle");
-// Belt-and-braces: also set inline transform so even if a CSS rule is overridden, it works.
+// Belt-and-braces: set inline transform so even if a CSS rule is overridden, it works.
 function applyDrawerState(expanded) {
   if (expanded) {
     sidebar.classList.add("expanded");
@@ -1144,21 +1122,13 @@ function applyDrawerState(expanded) {
 function expandSheet() { applyDrawerState(true); }
 function collapseSheet() { applyDrawerState(false); }
 function toggleSheet() { applyDrawerState(!sidebar.classList.contains("expanded")); }
-// Expose globally so the inline onclick can find it (most reliable on iOS Safari)
-window.toggleDrawer = toggleSheet;
-
-// Belt-and-braces: also wire addEventListener (works alongside the inline onclick)
-drawerHandle.addEventListener("click", function (e) {
-  e.preventDefault();
-  toggleSheet();
-});
-
-// Header tap is also a backup path
-header.addEventListener("click", function (e) {
+// Expose globally — the inline onclick on the header calls this.
+window.toggleDrawer = function (event) {
   if (!isMobile()) return;
-  if (e.target.closest(".icon-btn")) return;
+  // Don't toggle if the user tapped the language or info icon button
+  if (event && event.target && event.target.closest(".icon-btn")) return;
   toggleSheet();
-});
+};
 
 // ─── Mobile filter panel toggle ───────────────────────────
 const filterToggle = document.getElementById("filter-toggle");
