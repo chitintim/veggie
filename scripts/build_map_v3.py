@@ -557,7 +557,7 @@ HTML = r"""<!DOCTYPE html>
 
 <div id="app">
   <aside id="sidebar">
-    <header id="sidebar-header" onclick="window.toggleDrawer && toggleDrawer(event)">
+    <header id="sidebar-header" role="button" tabindex="0">
       <span class="handle-pill" aria-hidden="true"></span>
       <div class="header-row">
         <h1><span class="leaf">🌱</span> <span data-i18n="title">HK Veg</span> <span class="count" id="m-count"></span></h1>
@@ -1122,13 +1122,13 @@ function applyDrawerState(expanded) {
 function expandSheet() { applyDrawerState(true); }
 function collapseSheet() { applyDrawerState(false); }
 function toggleSheet() { applyDrawerState(!sidebar.classList.contains("expanded")); }
-// Expose globally — the inline onclick on the header calls this.
-window.toggleDrawer = function (event) {
+// One single handler — the path that was working before. No inline onclick,
+// no touchend, no double-firing complexity.
+header.addEventListener("click", function (e) {
   if (!isMobile()) return;
-  // Don't toggle if the user tapped the language or info icon button
-  if (event && event.target && event.target.closest(".icon-btn")) return;
+  if (e.target && e.target.closest(".icon-btn")) return;
   toggleSheet();
-};
+});
 
 // ─── Mobile filter panel toggle ───────────────────────────
 const filterToggle = document.getElementById("filter-toggle");
