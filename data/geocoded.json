@@ -218,6 +218,12 @@
     "source": "manual",
     "label": "Yu Chui Market, Sha Tin"
   },
+  "Tsz Shan Monastery Vegetarian Hall||Tai Po": {
+    "lat": 22.4555,
+    "lng": 114.203,
+    "source": "manual",
+    "label": "Tsz Shan Monastery, Tai Po"
+  },
   "Treehouse||Multi-branch": {
     "lat": 22.2828,
     "lng": 114.1542,
@@ -578,6 +584,48 @@
     "source": "manual",
     "label": "Connaught Rd West, Sai Ying Pun"
   },
+  "One Harbour Road||Wan Chai (Grand Hyatt)": {
+    "lat": 22.2802,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "Grand Hyatt, 1 Harbour Rd, Wan Chai"
+  },
+  "Yat Tung Heen||Jordan (Eaton HK)": {
+    "lat": 22.3046,
+    "lng": 114.1725,
+    "source": "manual",
+    "label": "Eaton HK, 380 Nathan Rd, Jordan"
+  },
+  "Petrus||Admiralty (Island Shangri-La)": {
+    "lat": 22.2774,
+    "lng": 114.1662,
+    "source": "manual",
+    "label": "Island Shangri-La, Pacific Place, Admiralty"
+  },
+  "Nicholini's||Admiralty (Conrad HK)": {
+    "lat": 22.2774,
+    "lng": 114.1662,
+    "source": "manual",
+    "label": "Conrad HK, Pacific Place, Admiralty"
+  },
+  "Sing Yin Cantonese Dining||Tsim Sha Tsui (W Hong Kong)": {
+    "lat": 22.3041,
+    "lng": 114.1599,
+    "source": "manual",
+    "label": "W Hong Kong, 17 Hanoi Rd, TST"
+  },
+  "Asaya Kitchen||Tsim Sha Tsui (Rosewood)": {
+    "lat": 22.2935,
+    "lng": 114.1731,
+    "source": "manual",
+    "label": "Rosewood, Victoria Dockside, TST"
+  },
+  "GREEN||Tsim Sha Tsui East (Hotel ICON)": {
+    "lat": 22.3015,
+    "lng": 114.1815,
+    "source": "manual",
+    "label": "Hotel ICON, Science Museum Rd, TST East"
+  },
   "Woodlands Indian Vegetarian||Tsim Sha Tsui East": {
     "lat": 22.2974,
     "lng": 114.1815,
@@ -715,6 +763,30 @@
     "lng": 114.1485,
     "source": "manual",
     "label": "77 Wing Lok St, Sheung Wan"
+  },
+  "An Choi||Sheung Wan": {
+    "lat": 22.2864,
+    "lng": 114.1485,
+    "source": "manual",
+    "label": "15-17 Mercer St, Sheung Wan"
+  },
+  "Brass Spoon||Wan Chai (+ multi-branch)": {
+    "lat": 22.2762,
+    "lng": 114.1733,
+    "source": "manual",
+    "label": "1 Moon St, Wan Chai"
+  },
+  "Serendib||Sheung Wan": {
+    "lat": 22.2872,
+    "lng": 114.1485,
+    "source": "manual",
+    "label": "148 Wing Lok St, Sheung Wan"
+  },
+  "Hotal Colombo||Soho (Central)": {
+    "lat": 22.2823,
+    "lng": 114.1535,
+    "source": "manual",
+    "label": "31 Elgin St, Soho, Central"
   },
   "Soil to Soul||Tsim Sha Tsui": {
     "closed": true
