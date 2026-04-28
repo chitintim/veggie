@@ -557,7 +557,8 @@ HTML = r"""<!DOCTYPE html>
 
 <div id="app">
   <aside id="sidebar">
-    <header id="sidebar-header" role="button" tabindex="0">
+    <header id="sidebar-header" role="button" tabindex="0"
+            onclick="flipDrawer(event)">
       <span class="handle-pill" aria-hidden="true"></span>
       <div class="header-row">
         <h1><span class="leaf">🌱</span> <span data-i18n="title">HK Veg</span> <span class="count" id="m-count"></span></h1>
@@ -621,6 +622,25 @@ HTML = r"""<!DOCTYPE html>
   <main id="map"></main>
 </div>
 
+<script>
+// ─── Top-of-script bulletproof drawer toggle ─────────────────────
+// Defined first, before any other JS, so even if something below throws
+// the inline onclick on the header still works.
+window.flipDrawer = function (event) {
+  if (window.innerWidth > 800) return;
+  if (event && event.target && event.target.closest && event.target.closest(".icon-btn")) return;
+  var sb = document.getElementById("sidebar");
+  if (!sb) return;
+  var nowExpanded = sb.classList.toggle("expanded");
+  if (nowExpanded) {
+    sb.style.transform = "translate3d(0, 0, 0)";
+    sb.style.webkitTransform = "translate3d(0, 0, 0)";
+  } else {
+    sb.style.transform = "translate3d(0, calc(100% - 104px), 0)";
+    sb.style.webkitTransform = "translate3d(0, calc(100% - 104px), 0)";
+  }
+};
+</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
@@ -1122,13 +1142,10 @@ function applyDrawerState(expanded) {
 function expandSheet() { applyDrawerState(true); }
 function collapseSheet() { applyDrawerState(false); }
 function toggleSheet() { applyDrawerState(!sidebar.classList.contains("expanded")); }
-// One single handler — the path that was working before. No inline onclick,
-// no touchend, no double-firing complexity.
-header.addEventListener("click", function (e) {
-  if (!isMobile()) return;
-  if (e.target && e.target.closest(".icon-btn")) return;
-  toggleSheet();
-});
+// Click handler is the inline onclick="flipDrawer(event)" on the header element.
+// flipDrawer is defined at the top of this <script> block so it's always available
+// even if any other JS below throws. Don't add a duplicate listener here — that
+// would double-fire and cancel out.
 
 // ─── Mobile filter panel toggle ───────────────────────────
 const filterToggle = document.getElementById("filter-toggle");
