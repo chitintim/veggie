@@ -439,6 +439,7 @@ HTML = r"""<!DOCTYPE html>
       width: 60px; height: 6px; border-radius: 3px;
       background: var(--accent); opacity: 0.7;
       transition: all 0.2s;
+      pointer-events: none;  /* iOS: forward taps to parent button */
     }
     .drawer-handle:active .handle-pill { opacity: 1; transform: scaleX(1.1); }
     .handle-chevron {
@@ -446,6 +447,7 @@ HTML = r"""<!DOCTYPE html>
       line-height: 0.6; font-weight: 700;
       transition: transform 0.3s var(--spring), opacity 0.2s;
       transform-origin: center;
+      pointer-events: none;  /* iOS: forward taps to parent button */
     }
     #sidebar.expanded .handle-chevron {
       transform: rotate(180deg);
