@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="theme-color" content="#05050a">
+<meta name="description" content="A curated, transparently-scored database of 103 vegetarian-friendly restaurants in Hong Kong.">
+<title>HK Veg — Hong Kong Vegetarian Restaurants</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+  /* ─── Base / palette (nicked from chitintim.github.io) ─── */
+  :root {
+    --bg: #05050a;
+    --bg-lighter: #0a0a14;
+    --card: rgba(255, 255, 255, 0.04);
+    --card-hover: rgba(255, 255, 255, 0.07);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-border-strong: rgba(255, 255, 255, 0.16);
+    --text: #e8e8ef;
+    --text-dim: #8a8a9b;
+    --text-mute: #6b6b80;
+
+    /* Category accents */
+    --catA: #ffe66d;   /* Chinese 齋 — warm yellow */
+    --catB: #4ecdc4;   /* Modern plant-based — teal */
+    --catC: #ff6b6b;   /* Mainstream — coral */
+    --catD: #a855f7;   /* Indian/ME/Med — purple */
+
+    /* Tier colours */
+    --tierS: #4ecdc4;
+    --tierA: #6fe1d8;
+    --tierB: #ffe66d;
+    --tierC: #ffa84a;
+    --tierD: #ff6b6b;
+
+    --glow-purple: rgba(168, 85, 247, 0.15);
+    --glow-teal: rgba(78, 205, 196, 0.12);
+    --glow-coral: rgba(255, 107, 107, 0.12);
+
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
+    --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.45);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif; color: var(--text); background: var(--bg); overscroll-behavior: none; }
+  button { font: inherit; color: inherit; }
+  ::selection { background: var(--catB); color: var(--bg); }
+
+  /* ─── Ambient orbs (a single subtle one — not the full chaos) ─── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+  }
+  .orb-1 { width: 540px; height: 540px; background: radial-gradient(circle, var(--glow-teal), transparent 70%); top: -160px; right: -160px; animation: orb 28s ease-in-out infinite; }
+  .orb-2 { width: 420px; height: 420px; background: radial-gradient(circle, var(--glow-purple), transparent 70%); bottom: -140px; left: -140px; animation: orb 32s ease-in-out infinite reverse; }
+  @keyframes orb {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(60px, -40px); }
+  }
+
+  /* ─── Layout ───────────────────────────────────── */
+  #app { display: grid; grid-template-columns: 380px 1fr; height: 100dvh; position: relative; z-index: 1; }
+  #sidebar {
+    background: rgba(8, 8, 14, 0.78);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border-right: 1px solid var(--card-border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  #map { height: 100%; min-height: 0; }
+
+  /* ─── Sidebar header ─────────────────────────────── */
+  #sidebar header { padding: 16px 18px 12px; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #sidebar header h1 {
+    margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;
+    background: linear-gradient(135deg, var(--catB) 0%, var(--catA) 50%, var(--catC) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  #sidebar header h1 .leaf { -webkit-text-fill-color: initial; color: #6fe1d8; margin-right: 2px; }
+  #sidebar header h1 .count { -webkit-text-fill-color: initial; color: var(--text-mute); font-size: 12px; font-weight: 500; margin-left: 6px; letter-spacing: 0; }
+  .header-buttons { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-btn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--card-border); background: var(--card); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-dim); transition: all 0.25s var(--spring); }
+  .icon-btn:hover { background: var(--card-hover); color: var(--catB); border-color: var(--catB); transform: translateY(-1px); }
+  .icon-btn:active { transform: scale(0.95); }
+
+  /* ─── Controls ───────────────────────────────────── */
+  .controls { padding: 12px 18px; border-bottom: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 10px; }
+  .controls input[type=search] { padding: 9px 12px; border: 1px solid var(--card-border-strong); border-radius: 10px; font-size: 14px; width: 100%; background: rgba(255,255,255,0.04); color: var(--text); }
+  .controls input[type=search]::placeholder { color: var(--text-mute); }
+  .controls input[type=search]:focus { outline: 2px solid var(--catB); outline-offset: -1px; border-color: var(--catB); background: rgba(255,255,255,0.06); }
+
+  .group-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-mute); margin: 4px 0 -2px; font-weight: 600; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 14px; font-size: 12px; cursor: pointer; user-select: none; border: 1px solid var(--card-border); background: var(--card); color: var(--text-dim); transition: all 0.25s var(--spring); min-height: 28px; }
+  .chip:hover { background: var(--card-hover); color: var(--text); }
+  .chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .chip.A .dot { background: var(--catA); } .chip.B .dot { background: var(--catB); }
+  .chip.C .dot { background: var(--catC); } .chip.D .dot { background: var(--catD); }
+
+  .tier-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; font-family: 'SF Mono', ui-monospace, Menlo, monospace; cursor: pointer; user-select: none; border: 1px solid transparent; transition: all 0.25s var(--spring); min-width: 30px; min-height: 28px; justify-content: center; }
+  .tier-chip.S { background: var(--tierS); color: #062520; }
+  .tier-chip.A { background: var(--tierA); color: #062520; }
+  .tier-chip.B { background: var(--tierB); color: #2a2306; }
+  .tier-chip.C { background: var(--tierC); color: #2a1606; }
+  .tier-chip.D { background: var(--tierD); color: #2a0606; }
+  .tier-chip:not(.active) { opacity: 0.28; }
+  .tier-chip.active:hover { transform: translateY(-1px); }
+
+  .slider-row { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+  input[type=range] { flex: 1; height: 24px; accent-color: var(--catB); }
+  #score-val { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-weight: 700; width: 30px; text-align: right; color: var(--catB); }
+
+  select { padding: 6px 10px; border: 1px solid var(--card-border-strong); border-radius: 10px; font-size: 12.5px; background: rgba(255,255,255,0.04); color: var(--text); min-height: 32px; }
+  select:focus { outline: 2px solid var(--catB); outline-offset: -1px; }
+  label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; user-select: none; padding: 4px 0; color: var(--text-dim); }
+  label.toggle input { width: 15px; height: 15px; accent-color: var(--catB); }
+  label.toggle:hover { color: var(--text); }
+
+  /* ─── Stats / list ───────────────────────────────── */
+  .stats { padding: 8px 18px; font-size: 11.5px; color: var(--text-mute); border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; }
+  .stats button.reset { font-size: 11px; padding: 3px 10px; border: 1px solid var(--card-border); background: var(--card); border-radius: 6px; cursor: pointer; color: var(--text-dim); transition: all 0.2s; }
+  .stats button.reset:hover { background: var(--card-hover); color: var(--text); border-color: var(--card-border-strong); }
+
+  #list { overflow-y: auto; flex: 1; min-height: 0; -webkit-overflow-scrolling: touch; }
+  #list:empty::before { content: "Nothing matches. Try resetting."; display: block; padding: 32px 18px; text-align: center; color: var(--text-mute); font-size: 13px; }
+  .item { padding: 11px 18px 11px 16px; border-bottom: 1px solid var(--card-border); cursor: pointer; transition: all 0.2s var(--spring); display: grid; grid-template-columns: 38px 1fr; gap: 12px; align-items: start; }
+  .item:hover { background: var(--card-hover); }
+  .item:active { background: rgba(78, 205, 196, 0.08); }
+  .item.selected { background: rgba(78, 205, 196, 0.1); border-left: 3px solid var(--catB); padding-left: 13px; }
+  .item .score-badge { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+  .item .score-badge.S { background: var(--tierS); color: #062520; } .item .score-badge.A { background: var(--tierA); color: #062520; }
+  .item .score-badge.B { background: var(--tierB); color: #2a2306; } .item .score-badge.C { background: var(--tierC); color: #2a1606; }
+  .item .score-badge.D { background: var(--tierD); color: #2a0606; } .item .score-badge.dash { background: rgba(255,255,255,0.08); color: var(--text-mute); font-size: 16px; }
+  .item .row1 { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .item .name { font-weight: 600; font-size: 14px; line-height: 1.3; color: var(--text); }
+  .item .zh { color: var(--text-mute); font-size: 12.5px; }
+  .item .meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; font-size: 11.5px; color: var(--text-mute); }
+  .item .pill { background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 9px; }
+  .item .pill.michelin { background: rgba(255, 230, 109, 0.14); color: var(--catA); }
+  .item .pill.closed { background: rgba(255, 107, 107, 0.16); color: var(--tierD); }
+  .item .cat-pill { color: #062520; padding: 2px 8px; border-radius: 9px; font-size: 11px; font-weight: 600; }
+
+  /* ─── Popup (light because Leaflet popups need light bg by default — keep readable) ─── */
+  .leaflet-popup-content-wrapper { background: var(--bg-lighter); color: var(--text); border-radius: 12px; box-shadow: var(--shadow-lg); border: 1px solid var(--card-border-strong); }
+  .leaflet-popup-tip { background: var(--bg-lighter); }
+  .leaflet-popup-content { margin: 14px 16px; line-height: 1.5; max-width: 360px; color: var(--text); }
+  .leaflet-popup-close-button { color: var(--text-mute) !important; font-size: 20px !important; padding: 6px 8px 0 0 !important; }
+  .leaflet-popup-close-button:hover { color: var(--text) !important; }
+  .popup .head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+  .popup .score-badge { width: 48px; height: 48px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-weight: 800; flex-shrink: 0; }
+  .popup .score-badge .score { font-size: 17px; line-height: 1; }
+  .popup .score-badge .tier { font-size: 9.5px; opacity: 0.85; margin-top: 2px; font-weight: 600; }
+  .popup .score-badge.S { background: var(--tierS); color: #062520; } .popup .score-badge.A { background: var(--tierA); color: #062520; }
+  .popup .score-badge.B { background: var(--tierB); color: #2a2306; } .popup .score-badge.C { background: var(--tierC); color: #2a1606; }
+  .popup .score-badge.D { background: var(--tierD); color: #2a0606; } .popup .score-badge.dash { background: rgba(255,255,255,0.08); color: var(--text-mute); }
+  .popup h3 { margin: 0 0 2px; font-size: 15px; color: var(--text); }
+  .popup .zh { color: var(--text-mute); font-size: 12px; }
+  .popup .cat-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: #062520; margin-top: 4px; font-weight: 600; }
+  .popup dl { display: grid; grid-template-columns: 80px 1fr; gap: 4px 10px; margin: 8px 0 0; font-size: 12.5px; }
+  .popup dt { color: var(--text-mute); }
+  .popup dd { margin: 0; word-break: break-word; color: var(--text); }
+  .popup .dishes { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--card-border); font-size: 12.5px; color: var(--text); }
+  .popup .dishes .label { color: var(--text-mute); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .popup .ratings { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .popup .rating { background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 8px; font-size: 11px; color: var(--text); }
+  .popup .rating.michelin { background: rgba(255, 230, 109, 0.16); color: var(--catA); }
+  .popup .flag { margin-top: 8px; padding: 6px 10px; background: rgba(255, 230, 109, 0.1); border-left: 3px solid var(--catA); font-size: 11.5px; border-radius: 4px; color: var(--text); }
+  .popup .flag.warn { background: rgba(255, 107, 107, 0.1); border-color: var(--tierD); }
+  .popup a { color: var(--catB); text-decoration: none; }
+  .popup a:hover { text-decoration: underline; }
+  .popup .actions { margin-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .popup .action-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; text-decoration: none; border: 1px solid var(--card-border-strong); background: var(--card); color: var(--text); transition: all 0.25s var(--spring); cursor: pointer; }
+  .popup .action-btn:hover { background: var(--card-hover); transform: translateY(-1px); text-decoration: none; }
+  .popup .action-btn.primary { background: linear-gradient(135deg, var(--catB), var(--catD)); color: white; border-color: transparent; }
+  .popup .action-btn.primary:hover { box-shadow: 0 4px 14px rgba(78, 205, 196, 0.25); }
+  .popup .action-btn .icon { font-size: 13px; line-height: 1; }
+  .popup .notes-block { margin-top: 8px; font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ─── Map controls / legend ──────────────────────── */
+  .legend { font-size: 11px; line-height: 1.55; background: rgba(8, 8, 14, 0.86); color: var(--text); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--card-border-strong) !important; }
+  .legend .row { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--bg-lighter); box-shadow: 0 0 0 1px rgba(255,255,255,0.2); }
+  .legend strong { color: var(--text); }
+  .legend small { color: var(--text-mute); }
+  .leaflet-control-attribution { font-size: 10px; background: rgba(8,8,14,0.7) !important; color: var(--text-mute) !important; }
+  .leaflet-control-attribution a { color: var(--text-dim) !important; }
+  .leaflet-control-zoom a { background: var(--bg-lighter) !important; color: var(--text) !important; border-color: var(--card-border-strong) !important; }
+  .leaflet-control-zoom a:hover { background: var(--card-hover) !important; }
+
+  /* ─── Welcome modal ──────────────────────────────── */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(5, 5, 10, 0.78);
+    display: none; z-index: 9999; align-items: center; justify-content: center; padding: 20px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .modal-bg.open { display: flex; animation: fade-in 0.2s ease-out; }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--bg-lighter);
+    border: 1px solid var(--card-border-strong);
+    border-radius: 18px;
+    max-width: 560px; width: 100%; max-height: 92vh; overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    animation: slide-up 0.3s var(--spring);
+    position: relative;
+  }
+  .modal::before {
+    content: ""; position: absolute; inset: 0; border-radius: 18px;
+    background: linear-gradient(135deg, var(--glow-teal), transparent 50%, var(--glow-purple));
+    opacity: 0.4; pointer-events: none; z-index: 0;
+  }
+  @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header { padding: 26px 28px 14px; position: relative; z-index: 1; }
+  .modal-header h2 { margin: 0 0 6px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--catB), var(--catA), var(--catC)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .modal-header h2 .leaf { -webkit-text-fill-color: initial; }
+  .modal-header .sub { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
+  .modal-body { padding: 0 28px 16px; font-size: 13.5px; line-height: 1.6; color: var(--text); position: relative; z-index: 1; }
+  .modal-body h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--catB); margin: 18px 0 8px; }
+  .modal-body p { margin: 0 0 10px; }
+  .modal-body ul { margin: 0 0 10px; padding-left: 18px; }
+  .modal-body li { margin-bottom: 5px; color: var(--text-dim); }
+  .modal-body li strong { color: var(--text); }
+  .modal-body code { background: rgba(78, 205, 196, 0.12); padding: 1px 6px; border-radius: 4px; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: var(--catB); }
+  .stat-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+  .stat-pill {
+    display: inline-flex; flex-direction: column; align-items: flex-start;
+    padding: 10px 14px; border-radius: 12px;
+    background: var(--card); border: 1px solid var(--card-border);
+    flex: 1; min-width: 86px;
+    transition: all 0.3s var(--spring);
+  }
+  .stat-pill:hover { transform: translateY(-2px); border-color: var(--card-border-strong); }
+  .stat-pill .num { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 22px; font-weight: 800; line-height: 1; color: var(--catB); }
+  .stat-pill .lbl { font-size: 10px; color: var(--text-mute); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .modal-footer { padding: 14px 28px 24px; display: flex; gap: 12px; justify-content: flex-end; align-items: center; flex-wrap: wrap; position: relative; z-index: 1; }
+  .modal-footer .secondary { color: var(--text-mute); font-size: 12px; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--catB), var(--catD));
+    color: white; border: none;
+    padding: 11px 26px; border-radius: 10px; cursor: pointer;
+    font-size: 14px; font-weight: 700;
+    transition: all 0.25s var(--spring);
+    box-shadow: 0 4px 14px rgba(78, 205, 196, 0.18);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(78, 205, 196, 0.3); }
+  .btn-primary:active { transform: scale(0.97); }
+
+  /* ─── Mobile FAB ──────────────────────────────── */
+  #mobile-fab { display: none; }
+
+  /* ─── Mobile layout ──────────────────────────────── */
+  @media (max-width: 800px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    #sidebar {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      height: 60vh; max-height: 88dvh;
+      transform: translateY(calc(100% - 64px));
+      transition: transform 0.32s var(--spring);
+      z-index: 1000; border-right: none;
+      border-top: 1px solid var(--card-border-strong);
+      border-top-left-radius: 20px; border-top-right-radius: 20px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+    #sidebar.expanded { transform: translateY(0); height: 92dvh; }
+    #sidebar header {
+      padding: 12px 18px 10px; cursor: pointer; position: relative; flex-shrink: 0;
+    }
+    #sidebar header::before {
+      content: ""; position: absolute; top: 8px; left: 50%;
+      transform: translateX(-50%);
+      width: 38px; height: 4px; border-radius: 2px;
+      background: var(--card-border-strong);
+    }
+    #sidebar header h1 { font-size: 16px; padding-top: 10px; }
+    .header-buttons { display: none; }
+
+    .controls { padding: 10px 16px 8px; gap: 8px; }
+    .filter-row { gap: 6px; }
+    .chip { padding: 7px 12px; font-size: 12.5px; }
+    .tier-chip { padding: 6px 12px; font-size: 12.5px; min-width: 32px; min-height: 32px; }
+
+    .stats { padding: 8px 16px; }
+    .item { padding: 12px 16px; }
+    .item .name { font-size: 14.5px; }
+
+    #map { height: 100dvh; }
+
+    /* Floating Action Button */
+    #mobile-fab {
+      display: flex; position: fixed; top: 14px; right: 14px;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(8, 8, 14, 0.86); color: var(--catB);
+      border: 1px solid var(--card-border-strong);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      box-shadow: var(--shadow-md);
+      align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 600;
+      cursor: pointer; z-index: 999;
+    }
+    #mobile-fab:active { transform: scale(0.92); }
+
+    /* Modal as bottom sheet */
+    .modal { border-radius: 20px 20px 0 0; max-height: 92dvh; align-self: flex-end; width: 100%; max-width: none; }
+    .modal-bg { padding: 0; align-items: flex-end; }
+    .modal-header { padding: 22px 22px 12px; }
+    .modal-body { padding: 0 22px 12px; }
+    .modal-footer { padding: 12px 22px 24px; }
+
+    .leaflet-popup-content { max-width: calc(100vw - 60px); }
+  }
+
+  @media (max-width: 380px) {
+    #sidebar header h1 { font-size: 14.5px; }
+    .modal-header h2 { font-size: 20px; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    .orb { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- Welcome / About modal -->
+<div class="modal-bg" id="modal-bg" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal" tabindex="-1">
+    <div class="modal-header">
+      <h2 id="modal-title"><span class="leaf">🌱</span> HK Veg</h2>
+      <p class="sub">Hi. So finding a decent veggie restaurant in Hong Kong shouldn't be this annoying — OpenRice is full of paid 5★ reviews, HappyCow recycles the same 10 expat spots, Google reviews split bimodal between 5s and 1s with nothing in between. So I roped in <a href="https://anthropic.com" target="_blank" rel="noopener noreferrer" style="color:var(--catB);">Claude</a> and built this.</p>
+    </div>
+    <div class="modal-body">
+      <div class="stat-row">
+        <div class="stat-pill"><span class="num">103</span><span class="lbl">places</span></div>
+        <div class="stat-pill"><span class="num">12</span><span class="lbl">S-tier</span></div>
+        <div class="stat-pill"><span class="num">24</span><span class="lbl">A-tier</span></div>
+        <div class="stat-pill"><span class="num">4</span><span class="lbl">categories</span></div>
+      </div>
+
+      <h3>what's in it</h3>
+      <ul>
+        <li><strong style="color:var(--catA)">Chinese 齋</strong> — Buddhist veg halls, mock-meat, traditional dim sum.</li>
+        <li><strong style="color:var(--catB)">Modern plant-based</strong> — the newer-wave vegan/vegetarian places.</li>
+        <li><strong style="color:var(--catC)">Mainstream with a real veg menu</strong> — non-veg restaurants where the veg side isn't an afterthought.</li>
+        <li><strong style="color:var(--catD)">Indian / ME / Med</strong> — pure-veg & naturally veg-heavy cuisines.</li>
+      </ul>
+
+      <h3>how the score works</h3>
+      <p>Each place gets a <strong>0–100 score</strong> that's actually defensible:</p>
+      <ul>
+        <li>Bayesian-weighted ratings across Google, OpenRice & HappyCow — so a 4.9★ with 8 reviews can't outrank a 4.5★ with 800.</li>
+        <li>Critic bonus: <code>+15</code> ★★★ Michelin, <code>+10</code> ★★, <code>+7</code> ★, <code>+4</code> Bib/Tatler/Time Out.</li>
+        <li>Penalties for suspect reviews (those bimodal OpenRice patterns) and dodgy operating status.</li>
+      </ul>
+      <p>Tiers: <strong style="color:var(--tierS)">S</strong> (85+), <strong style="color:var(--tierA)">A</strong> (75–84), <strong style="color:var(--tierB)">B</strong> (65–74), <strong style="color:var(--tierC)">C</strong> (55–64), <strong style="color:var(--tierD)">D</strong> (&lt;55). Closed places sink to the bottom.</p>
+
+      <h3>how to use it</h3>
+      <ul>
+        <li>List sorts S → D. Tap anything to fly the map there.</li>
+        <li>Slide the score, hit tier/category chips, search by name or dish.</li>
+        <li>"Critic-recognised" filters to Michelin/Tatler/Time Out only.</li>
+        <li>"Trusted reviews" hides places with iffy review patterns.</li>
+        <li>Every popup has a Google Maps button. Phone & website links are tappable.</li>
+      </ul>
+
+      <p style="color:var(--text-mute);font-size:12px;margin-top:16px;">Compiled April 2026 with Claude doing the heavy lifting. Restaurant details shift constantly in HK — phone or check Instagram before high-stakes plans. — <a href="https://chitintim.github.io" target="_blank" rel="noopener noreferrer" style="color:var(--text-dim);">Tim</a></p>
+    </div>
+    <div class="modal-footer">
+      <span class="secondary">Tap <span style="display:inline-flex;width:22px;height:22px;border-radius:50%;border:1px solid var(--card-border-strong);align-items:center;justify-content:center;font-size:11px;color:var(--catB);vertical-align:middle;">?</span> anytime</span>
+      <button class="btn-primary" id="modal-close">Let's eat</button>
+    </div>
+  </div>
+</div>
+
+<button id="mobile-fab" aria-label="About / Help" title="About">?</button>
+
+<div id="app">
+  <aside id="sidebar">
+    <header id="sidebar-header" role="button" aria-label="Toggle results panel">
+      <h1><span class="leaf">🌱</span> HK Veg <span class="count" id="m-count"></span></h1>
+      <div class="header-buttons">
+        <button class="icon-btn" id="info-btn" title="About / methodology" aria-label="About">?</button>
+      </div>
+    </header>
+
+    <div class="controls">
+      <input id="search" type="search" placeholder="Search name, dish, district…" autocomplete="off" />
+
+      <div class="group-label">Quality (min score)</div>
+      <div class="slider-row">
+        <input id="score-slider" type="range" min="0" max="95" step="5" value="0" aria-label="Minimum quality score" />
+        <span id="score-val">0</span>
+      </div>
+
+      <div class="group-label">Tier</div>
+      <div class="filter-row">
+        <span class="tier-chip S active" data-tier="S">S</span>
+        <span class="tier-chip A active" data-tier="A">A</span>
+        <span class="tier-chip B active" data-tier="B">B</span>
+        <span class="tier-chip C active" data-tier="C">C</span>
+        <span class="tier-chip D active" data-tier="D">D</span>
+      </div>
+
+      <div class="group-label">Category</div>
+      <div class="filter-row" id="cat-filters">
+        <span class="chip A active" data-cat="A. Chinese / Buddhist 齋"><span class="dot"></span>Chinese 齋</span>
+        <span class="chip B active" data-cat="B. Modern Plant-Based / Fine"><span class="dot"></span>Plant-based</span>
+        <span class="chip C active" data-cat="C. Mainstream w/ Strong Veg"><span class="dot"></span>Mainstream</span>
+        <span class="chip D active" data-cat="D. Indian / ME / Med"><span class="dot"></span>Indian/ME/Med</span>
+      </div>
+
+      <div class="group-label">More filters</div>
+      <div class="filter-row" style="gap:10px;">
+        <select id="veg-filter">
+          <option value="">Any veg type</option>
+          <option value="vegan">Vegan only</option>
+          <option value="jain">Jain options</option>
+        </select>
+        <label class="toggle"><input type="checkbox" id="critic-only"> Critic-recognised</label>
+      </div>
+      <div class="filter-row" style="gap:10px;">
+        <label class="toggle"><input type="checkbox" id="trusted-only"> Trusted reviews</label>
+        <label class="toggle"><input type="checkbox" id="hide-closed" checked> Hide closed</label>
+      </div>
+    </div>
+
+    <div class="stats">
+      <span id="stats-text"></span>
+      <button class="reset" id="reset-btn">reset</button>
+    </div>
+    <div id="list"></div>
+  </aside>
+  <main id="map"></main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const DATA = [{"name_en": "Chi Lin Vegetarian (Long Men Lou)", "name_zh": "龍門樓 / 志蓮素齋", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 69.7, "tier": "B", "subtype": "Buddhist 齋 / Cantonese", "district": "Diamond Hill", "address": "60 Fung Tak Road, Chi Lin Nunnery, Diamond Hill", "phone": "+852 2354 1888", "website": "chilin.org/chilin-vegetarian", "booking": "Phone, AutoReserve", "hours": "Lunch 11:30–15:00, Dinner 17:30–21:00 (varies)", "price": "150–250", "veg_type": "Vegetarian (no allium)", "jain": "Partial", "dishes": "Truffle mushroom tofu; pan-fried radish cake; vinegar crispy taro pot; lotus seed soup; mushroom dumplings", "google": "4.4 (90+)", "openrice": "4.1", "happycow": "4.3", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Set inside Tang-style nunnery with waterfall views. Reservation strongly advised for weekends. No garlic/onion. Tea ceremony often included.", "sources": "https://www.chilin.org; https://guide.michelin.com/hk/en", "lat": 22.341362500000002, "lng": 114.20241875}, {"name_en": "Kung Tak Lam Shanghai Vegetarian", "name_zh": "功德林上海素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 72.2, "tier": "B", "subtype": "Shanghainese veg", "district": "Causeway Bay / TST (multi-branch)", "address": "CWB: 20/F Sugar+, 25-31 Sugar St | TST: 1/F North Point Bldg, 27 Granville Rd; also 7/F One Peking, 1 Peking Rd", "phone": "+852 2375 3322 (CWB); +852 2366 0336 (TST)", "website": "kungtaklam.com", "booking": "OpenRice, Phone", "hours": "11:30–22:30 daily", "price": "150–250", "veg_type": "Vegetarian (some egg)", "jain": "On request", "dishes": "Vegetarian 'goose' (素鵝); cold mixed noodles; mock 'shrimp'; eight-treasure rice; sweet-and-sour mock pork ribs", "google": "4.2 (300+)", "openrice": "4.1 (80+)", "happycow": "4.4", "michelin": "Michelin Bib Gourmand (historical)", "review_flag": "Trusted", "status": "Open", "notes": "MSG-free claim. Long-running institution (since 1922 origin Shanghai). Multiple HK branches over the years — verify current branches before visiting.", "sources": "https://guide.michelin.com/hk/en; OpenRice listings", "lat": 22.28135625, "lng": 114.18715625}, {"name_en": "Pure Veggie House", "name_zh": "心齋", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 69.8, "tier": "B", "subtype": "Cantonese dim sum (veg)", "district": "Mid-Levels / Central", "address": "3/F Coda Plaza, 51 Garden Road, Central", "phone": "+852 2525 0552", "website": "—", "booking": "Phone", "hours": "11:30–15:00, 17:30–22:00", "price": "120–200", "veg_type": "Vegetarian", "jain": "No", "dishes": "Shredded turnip puff (~$39); char siu roll (~$42); pumpkin pastries; black truffle dumplings; veg dim sum trolley at lunch", "google": "4.3 (200+)", "openrice": "3.9", "happycow": "4.2", "michelin": "Tatler-listed; SCMP coverage", "review_flag": "Trusted", "status": "Open", "notes": "One of the better-known sit-down veg dim sum experiences. Trolley service at peak lunch.", "sources": "OpenRice; Tatler Asia", "lat": 22.282875, "lng": 114.1577}, {"name_en": "Three Virtues Vegetarian", "name_zh": "三德素食館", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 60.2, "tier": "C", "subtype": "Cantonese veg / dim sum", "district": "North Point", "address": "1/F, 395 King's Road, North Point", "phone": "+852 2856 1333", "website": "—", "booking": "Phone, OpenRice", "hours": "11:00–23:00 daily", "price": "120–180", "veg_type": "Vegetarian", "jain": "No", "dishes": "Mock-meat dim sum; ma po tofu; vegetarian roast goose; preserved-vegetable soup", "google": "4.1 (100+)", "openrice": "4.0 (40+)", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Lay Buddhist founders. English menu available. Founded around 2003.", "sources": "OpenRice; HappyCow", "lat": 22.290162499999997, "lng": 114.19763125}, {"name_en": "LockCha Tea House", "name_zh": "樂茶軒", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 71.4, "tier": "B", "subtype": "Vegetarian dim sum + tea", "district": "Admiralty / Central (Tai Kwun)", "address": "Admiralty: G/F K.S. Lo Gallery, HK Park, 10 Cotton Tree Drive | Central: G06-07 Tai Kwun, 10 Hollywood Rd", "phone": "+852 2801 7177", "website": "lockcha.com", "booking": "OpenRice, Phone", "hours": "10:00–20:00 (closed 2nd Tue, Admiralty)", "price": "200–350", "veg_type": "Vegetarian", "jain": "On request", "dishes": "Charcoal sesame buns; mushroom dumplings; pumpkin tea cake; 100+ teas; pu-erh pairing menus", "google": "4.3 (200+)", "openrice": "4.2 (100+)", "happycow": "4.4", "michelin": "Time Out top-pick", "review_flag": "Trusted", "status": "Open", "notes": "Premium experience. Vegetarian dim sum paired with classical Chinese tea. Quiet park-side setting.", "sources": "https://www.lockcha.com; Time Out HK", "lat": 22.2816875, "lng": 114.1588875}, {"name_en": "Veggie Kingdom", "name_zh": "緻素坊", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 74.1, "tier": "B", "subtype": "Cantonese modern veg dim sum", "district": "Tsim Sha Tsui / Causeway Bay", "address": "TST: 7/F VIP Commercial Centre, 120 Canton Rd | CWB: 4/F Kyoto Plaza, 491-499 Lockhart Rd", "phone": "+852 2366 0336", "website": "veggiekingdom.hk", "booking": "Phone, OpenRice", "hours": "10:30–22:00", "price": "120–220", "veg_type": "Vegetarian", "jain": "No", "dishes": "Veg siu mai ($48–58); spring rolls ($62–72); char siu bao ($52–62); truffle dumplings; XO eggplant", "google": "4.5 (180+)", "openrice": "4.0 (80+)", "happycow": "—", "michelin": "Bloomberg HK review (2025)", "review_flag": "Trusted", "status": "Open", "notes": "Modern aesthetic, traditional veg dim sum (no fake-meat focus). Multiple branches.", "sources": "Bloomberg 2025; OpenRice", "lat": 22.278075, "lng": 114.1890625}, {"name_en": "Po Lin Monastery Vegetarian Dining Hall", "name_zh": "寶蓮禪寺素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 42.2, "tier": "D", "subtype": "Buddhist monastery canteen", "district": "Lantau (Ngong Ping)", "address": "Po Lin Monastery, Ngong Ping, Lantau Island", "phone": "+852 2985 5248", "website": "plm.org.hk", "booking": "Walk-in (food-coupon system at gate)", "hours": "11:30–16:30 weekday; 11:30–17:30 weekend", "price": "80–150", "veg_type": "Buddhist 齋 (no allium)", "jain": "Yes (de facto)", "dishes": "Set meal (rice + 4-5 dishes): braised tofu, vegetables, mock-meat sweet & sour; tofu pudding (豆腐花)", "google": "3.7 (mixed)", "openrice": "—", "happycow": "3.8", "michelin": "—", "review_flag": "Mixed signals — touristy, food quality varies", "status": "Open", "notes": "Tied to Big Buddha visit. Buy meal coupon at counter near base of Big Buddha. Cash only typical.", "sources": "https://www.plm.org.hk; HappyCow", "lat": 22.255125, "lng": 113.9092875}, {"name_en": "Liza Veggies", "name_zh": "麗姐廚房", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 61.5, "tier": "C", "subtype": "Private kitchen, Cantonese veg", "district": "Wan Chai", "address": "Room A-D, 2/F, Harvard House, 105-111 Thomson Rd, Wan Chai", "phone": "+852 2893 3626", "website": "—", "booking": "Phone (advance booking required)", "hours": "12:00–22:00", "price": "150–220", "veg_type": "Vegetarian", "jain": "On request", "dishes": "Daily seasonal set menu; mushroom hotpot; mock-roast goose; preserved-vegetable rice", "google": "4.2 (60+)", "openrice": "4.1", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "30+ years experience. MSG-free claim. Sister project linked to Blue House heritage area.", "sources": "OpenRice listing", "lat": 22.281625, "lng": 114.17592499999999}, {"name_en": "Oriental Vegetarian (Tung Fong Siu Kee Yuen)", "name_zh": "東方小祇園", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 46.6, "tier": "D", "subtype": "Heritage Cantonese veg", "district": "Wan Chai", "address": "239-241 Hennessy Rd, Wan Chai (verify current branch — historic Shanghai-style hall)", "phone": "+852 2572 4444", "website": "—", "booking": "Walk-in, phone", "hours": "11:00–22:00", "price": "80–150", "veg_type": "Vegetarian", "jain": "No", "dishes": "Traditional veg noodles; mock duck (素鴨); veg dumplings; ma po tofu", "google": "3.9 (100+)", "openrice": "3.9", "happycow": "3.8", "michelin": "Heritage interest", "review_flag": "Trusted", "status": "Open (verify branch)", "notes": "Claims founding 1905 — among HK's oldest vegetarian restaurants. Old-school, no-frills service.", "sources": "OpenRice; HappyCow", "lat": 22.27571875, "lng": 114.1727375}, {"name_en": "Vegelink Vegetarian", "name_zh": "素之樂", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 62.6, "tier": "C", "subtype": "Vegan dim sum + grocery", "district": "North Point", "address": "Shop 108, 1/F Foo Yet Kall Bldg, 56 Java Rd, North Point", "phone": "+852 2807 1130", "website": "—", "booking": "Phone (dinner); walk-in lunch", "hours": "Dim sum 12:00–14:30 daily; dinner 18:00–22:00", "price": "120–180", "veg_type": "Vegan", "jain": "Partial", "dishes": "All-vegan dim sum: mushroom har gow, char siu bao, lotus paste buns; mock-meat noodles", "google": "4.2 (80+)", "openrice": "4.1 (70+)", "happycow": "4.3", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Strong Buddhist community following. Attached vegan grocery section.", "sources": "OpenRice; HappyCow", "lat": 22.29369375, "lng": 114.1965375}, {"name_en": "Paramita Vegetarian", "name_zh": "般若素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 56.8, "tier": "C", "subtype": "Cantonese veg dim sum", "district": "Causeway Bay", "address": "Shop B, 7/F, Lee Theatre Plaza, 99 Percival St, Causeway Bay", "phone": "+852 2577 8768", "website": "—", "booking": "Phone, OpenRice", "hours": "11:00–23:00", "price": "120–180", "veg_type": "Vegetarian", "jain": "No", "dishes": "Mock-meat dim sum recreations; veg sweet & sour 'pork'; mushroom hotpot", "google": "4.0 (60+)", "openrice": "3.9 (25+)", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Participates in HK Govt 'Less Salt and Sugar' scheme.", "sources": "OpenRice", "lat": 22.2782625, "lng": 114.18450000000001}, {"name_en": "Heartful Veggie", "name_zh": "從心素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 56.9, "tier": "C", "subtype": "Cantonese modern veg", "district": "San Po Kong / multi-branch", "address": "Shop 107, 1/F Mikiki, 638 Prince Edward Rd East, San Po Kong", "phone": "+852 3618 4826", "website": "—", "booking": "OpenRice, Phone", "hours": "11:30–22:00", "price": "90–150", "veg_type": "Vegetarian", "jain": "No", "dishes": "Sesame citrus 'spare ribs'; daily soup; clay-pot mock-meat; veg curry", "google": "4.0 (70+)", "openrice": "3.9 (40+)", "happycow": "4.0", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Less-Salt-and-Sugar scheme. Multiple payment options including mobile.", "sources": "OpenRice", "lat": 22.34205, "lng": 114.20303750000001}, {"name_en": "Veggie4Love", "name_zh": "蔬棧 4 Love", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 59.5, "tier": "C", "subtype": "Modern veg fusion (1950s SF themed)", "district": "Central", "address": "10/F Stanley 11, 11 Stanley St, Central", "phone": "+852 2537 0688", "website": "—", "booking": "Phone, OpenRice", "hours": "Mon-Fri 11:30–22:00; Sat-Sun 11:00–22:30", "price": "140–220", "veg_type": "Vegetarian (largely vegan-able)", "jain": "No", "dishes": "Beijing roasted 'slices'; 'Trip to Bali' nasi-style plate; laksa; mock 'pork chop'", "google": "4.1 (80+)", "openrice": "4.0 (50+)", "happycow": "4.1", "michelin": "—", "review_flag": "Trusted", "status": "Open (under post-2021 ownership)", "notes": "Retro 1950s SF aesthetic. Fusion menu — Pan-Asian veg.", "sources": "OpenRice; HappyCow", "lat": 22.28575, "lng": 114.155325}, {"name_en": "Yau Veggie Bistro", "name_zh": "遊", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 67.3, "tier": "B", "subtype": "Modern French-style veg", "district": "Tsuen Wan", "address": "Unit 118, 1/F The Mills, Pak Tin Par Street, Tsuen Wan", "phone": "+852 6899 0989 (WhatsApp preferred)", "website": "@yau.veggie.bistro", "booking": "WhatsApp (3-day notice)", "hours": "12:00–22:00", "price": "200–350", "veg_type": "Vegan", "jain": "Partial", "dishes": "'Beef' Wellington; cassoulet; vegan crème brûlée; fungus-driven appetisers", "google": "4.5 (40+)", "openrice": "4.3 (60+)", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Hidden in The Mills heritage textile complex. Booking lead time required.", "sources": "OpenRice; Instagram", "lat": 22.372974999999997, "lng": 114.11080625000001}, {"name_en": "Veggie Palace", "name_zh": "貴德宮皇廷素宴", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 42.2, "tier": "D", "subtype": "Private-kitchen Cantonese veg", "district": "Wan Chai", "address": "UG, Block B, Kwong Sang Hong Bldg, 6 Heard St, Wan Chai", "phone": "+852 2893 4988", "website": "—", "booking": "Phone, advance reservation required", "hours": "12:00–22:00", "price": "250–350", "veg_type": "Vegetarian", "jain": "On request", "dishes": "Daily-changing tasting set; mushroom-driven courses", "google": "—", "openrice": "4.2 (20+)", "happycow": "—", "michelin": "—", "review_flag": "Mixed (low review volume)", "status": "Open (verify before visiting)", "notes": "Hidden private-kitchen feel. Very low review volume.", "sources": "OpenRice", "lat": 22.28153125, "lng": 114.16929999999999}, {"name_en": "Paradise Veggie", "name_zh": "樂園素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 41.3, "tier": "D", "subtype": "Buffet veg dim sum", "district": "Causeway Bay", "address": "Shop B04, B/F, Tower 535, 535 Jaffe Rd, CWB", "phone": "+852 2577 8813", "website": "—", "booking": "OpenRice, Walk-in", "hours": "Lunch 11–14:30; tea 14:30–16:30; dinner 18–23:00", "price": "68–120 (buffet)", "veg_type": "Vegetarian", "jain": "No", "dishes": "60+ buffet items: veg sushi, dim sum, curries, desserts", "google": "3.6 (mixed)", "openrice": "3.8 (high variance)", "happycow": "—", "michelin": "—", "review_flag": "Mixed signals — bimodal score distribution; check before visiting", "status": "Open", "notes": "Self-serve buffet. Reviews split 5★ vs 1★ — likely a mix of paid reviews and quality control issues. Best as cheap fill, not a destination.", "sources": "OpenRice", "lat": 22.282106250000002, "lng": 114.18784375000001}, {"name_en": "Years (Sham Shui Po)", "name_zh": "蔬年", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 65.7, "tier": "B", "subtype": "Pan-Asian veg fusion", "district": "Sham Shui Po (multi-branch)", "address": "G/F, 191-199 Fukwah St, Sham Shui Po (also Tsuen Wan, Whampoa branches)", "phone": "+852 2386 8399", "website": "@yearsveganresto", "booking": "OpenRice, Phone", "hours": "11:30–22:00", "price": "120–180", "veg_type": "Vegan", "jain": "No", "dishes": "Impossible burger (~$140-180); vegan katsu curry (~$150-170); Japanese udon; vegan desserts ($70-100)", "google": "4.3 (150+)", "openrice": "3.9", "happycow": "4.5", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Plant-based-meat focus. Multi-branch, growing chain.", "sources": "Green Queen HK; OpenRice", "lat": 22.3338, "lng": 114.16441875}, {"name_en": "Fook Luk Sau Vegetarian", "name_zh": "福祿壽素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 55.0, "tier": "C", "subtype": "Cooked-food takeaway", "district": "Central (Sheung Wan edge)", "address": "G/F, 8 Tit Hong Lane, Central", "phone": "+852 2543 9843", "website": "—", "booking": "Walk-in only", "hours": "10:30–15:00 (closed Sun)", "price": "26–50", "veg_type": "Vegetarian", "jain": "No", "dishes": "Box meal (rice + 2-3 veg dishes ~$30); braised eggplant; wok-fried greens; mock-meat curry", "google": "3.9 (40+)", "openrice": "3.9", "happycow": "3.9", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Cheapest Central-area veg lunch. Cash only typical. Limited hours.", "sources": "OpenRice; HappyCow", "lat": 22.2800625, "lng": 114.16051250000001}, {"name_en": "Kan Kee Vegetarian Food", "name_zh": "勤記素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 53.2, "tier": "D", "subtype": "Cooked-food market stall", "district": "Wan Chai", "address": "Shop 6, 1/F Bowrington Rd Cooked Food Centre, Wan Chai", "phone": "+852 2575 7595", "website": "—", "booking": "Walk-in", "hours": "11:00–14:30 (closed Sun)", "price": "28–45", "veg_type": "Vegetarian", "jain": "No", "dishes": "3 veg choices + rice (~$30-40); veg noodles in soup; mock-meat plate", "google": "3.8", "openrice": "3.8 (15+)", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "No-frills market-hall stall. Lunch only.", "sources": "OpenRice", "lat": 22.277375, "lng": 114.17295625}, {"name_en": "Ying Vegetarian", "name_zh": "瀛素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 41.9, "tier": "D", "subtype": "Cantonese mock-meat", "district": "Yau Ma Tei", "address": "Yau Ma Tei (verify exact street — near Temple St)", "phone": "—", "website": "—", "booking": "Walk-in", "hours": "12:00–15:00; 18:00–22:00", "price": "40–80", "veg_type": "Vegetarian", "jain": "No", "dishes": "Veg fried dumplings; tempura veg; set lunches under $50", "google": "3.9", "openrice": "3.9 (20+)", "happycow": "3.8", "michelin": "—", "review_flag": "Trusted (verify address)", "status": "Verify", "notes": "Address details thin in public sources — call OpenRice listing before going.", "sources": "OpenRice; HappyCow", "lat": 22.313499999999998, "lng": 114.1737}, {"name_en": "Miss Lee", "name_zh": "—", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 73.7, "tier": "B", "subtype": "Modern Chinese veg bistro", "district": "Central", "address": "G/F The Wellington, 198 Wellington St, Central", "phone": "+852 2881 1811", "website": "@misslee_hk", "booking": "Inline, OpenRice", "hours": "11:00–23:00", "price": "180–380", "veg_type": "Vegetarian (some egg)", "jain": "No", "dishes": "Golden cauliflower; lettuce wraps; truffle dumplings; spinach-tofu soup; vegetarian Sichuan dan dan noodles", "google": "4.4 (200+)", "openrice": "4.2 (180+)", "happycow": "—", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Chef has Ying Jee Club (1-star) background. Polished modern Chinese veg.", "sources": "Tatler Asia; OpenRice", "lat": 22.28475, "lng": 114.15895}, {"name_en": "Sohofama", "name_zh": "—", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 67.4, "tier": "B", "subtype": "Modern Chinese (full vegan menu available)", "district": "Central (PMQ)", "address": "G/F Block A, PMQ, 35 Aberdeen St, Central", "phone": "+852 2858 8238", "website": "sohofama.com", "booking": "Phone, OpenTable", "hours": "12:00–15:00; 18:00–22:00", "price": "140–280", "veg_type": "Vegan menu available (mixed restaurant)", "jain": "On request", "dishes": "Vegan set menu ($180-220); organic stir-fries ($160-200); rooftop-garden produce dishes", "google": "4.3 (300+)", "openrice": "3.9", "happycow": "4.3", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Inside PMQ heritage complex. Has dedicated vegan menu since Green Monday partnership.", "sources": "https://sohofama.com", "lat": 22.28309375, "lng": 114.161575}, {"name_en": "Loving Hut (Kowloon Bay)", "name_zh": "愛家素食", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 51.7, "tier": "D", "subtype": "International vegan chain", "district": "Kowloon Bay (verify other active branches)", "address": "Multiple branches over years — verify current locations on chain website before visiting", "phone": "—", "website": "lovinghut.com/hongkong", "booking": "Walk-in, phone", "hours": "varies by branch", "price": "60–120", "veg_type": "Vegan", "jain": "No", "dishes": "Vegan bento sets; mock-meat noodles; vegan burgers", "google": "varies", "openrice": "varies", "happycow": "4.0", "michelin": "—", "review_flag": "Verify branches — many have closed", "status": "Partial — check current branches", "notes": "International chain affiliated with Supreme Master Ching Hai. HK branch count has shrunk; verify locations.", "sources": "https://lovinghut.com", "lat": 22.322725000000002, "lng": 114.212375}, {"name_en": "Yudei", "name_zh": "余地", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 59.8, "tier": "C", "subtype": "Spiritual cafe + workshops", "district": "Sham Shui Po", "address": "G/F, 198 Tai Nam St, Sham Shui Po", "phone": "+852 2389 9800", "website": "@yudei.hk", "booking": "Phone (workshops); walk-in cafe", "hours": "Weekday 12:00–17:00; weekend 11:00–18:00", "price": "100–150", "veg_type": "Vegan", "jain": "Partial", "dishes": "Veg gua bao; veg noodles; vegan desserts; house teas", "google": "4.2 (50+)", "openrice": "4.0", "happycow": "4.1", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Tatami seating, sound-bath / meditation upstairs. Unique concept.", "sources": "OpenRice; Instagram", "lat": 22.330112500000002, "lng": 114.1622625}, {"name_en": "Thai Vegetarian Food", "name_zh": "—", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 59.7, "tier": "C", "subtype": "Thai Buddhist veg", "district": "Kowloon City", "address": "G/F, 28A Nam Kok Rd, Kowloon City", "phone": "+852 2716 2005", "website": "—", "booking": "Walk-in", "hours": "12:00–15:00; 18:00–22:00 (Wed–Mon)", "price": "60–90", "veg_type": "Vegetarian (no allium)", "jain": "Yes (de facto)", "dishes": "Green curry (vegan); veg pad thai; spring rolls; glass-noodle salad; sticky rice + mango", "google": "4.2 (40+)", "openrice": "—", "happycow": "4.0", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "No garlic/onion/shallots — strict Buddhist Thai. Within HK's 'Little Thailand' Kowloon City strip.", "sources": "HappyCow", "lat": 22.32766875, "lng": 114.19153125000001}, {"name_en": "Gaia Veggie Shop", "name_zh": "—", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 61.5, "tier": "C", "subtype": "Cantonese mock-meat", "district": "Tsim Sha Tsui (also CWB)", "address": "Shop 212, 2/F Mira Place 1, 132 Nathan Rd, TST", "phone": "+852 2376 1186", "website": "gaiaveggie.com", "booking": "Phone, OpenRice", "hours": "11:00–22:00", "price": "100–180", "veg_type": "Vegetarian", "jain": "On request", "dishes": "Veg fried rice; mushroom 'lamb' skewers; mock-meat curry; sweet & sour 'pork'", "google": "4.1 (200+)", "openrice": "4.0", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Long-running mock-meat-focused chain, multiple branches.", "sources": "OpenRice; Time Out HK", "lat": 22.2948125, "lng": 114.17185625}, {"name_en": "Amitabha Buddha Vegetarian", "name_zh": "—", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 45.7, "tier": "D", "subtype": "Buddhist 齋", "district": "Hung Hom", "address": "G/F, 41-43 Station Lane, Hung Hom", "phone": "+852 2215 4882", "website": "—", "booking": "Phone, walk-in", "hours": "Verify (lunch + dinner)", "price": "60–120", "veg_type": "Vegetarian (no allium)", "jain": "Yes (de facto)", "dishes": "Set lunch; mock-meat curry; veg dim sum", "google": "3.8 (40+)", "openrice": "3.9", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Verify", "notes": "Buddhist temple-affiliated. Phone before going — limited public info on current hours.", "sources": "OpenRice; HappyCow", "lat": 22.3068125, "lng": 114.18287500000001}, {"name_en": "Light Vegetarian", "name_zh": "—", "category": "A. Chinese / Buddhist 齋", "color": "#d4a72c", "score": 41.6, "tier": "D", "subtype": "Cantonese veg dim sum", "district": "Jordan", "address": "Near Jordan MTR (verify exact street address)", "phone": "—", "website": "—", "booking": "Walk-in", "hours": "Lunch yum cha; dinner", "price": "60–150", "veg_type": "Vegetarian", "jain": "No", "dishes": "Lunch yum cha (veg dim sum); set dinner", "google": "—", "openrice": "—", "happycow": "—", "michelin": "—", "review_flag": "Verify (low online presence)", "status": "Verify", "notes": "Mentioned in HK veg guides but minimal online presence — phone before going.", "sources": "Green Queen 2025 mention", "lat": 22.30131875, "lng": 114.17540625}, {"name_en": "Treehouse", "name_zh": "樹屋", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 77.8, "tier": "A", "subtype": "Plant-based fast-casual", "district": "Multi-branch", "address": "Central H Code: G/F 45 Pottinger St | Quarry Bay: 1/F Lincoln House, Taikoo Place | CWB: 7 Sharp St E | TST: Shop S28, B/F, 36-44 Nathan Rd | Kai Tak: G013, 2 Concorde Rd", "phone": "+852 3791 2277 (Central)", "website": "treehouse.eco", "booking": "Walk-in; phone for groups", "hours": "10:00–22:00 (varies by branch)", "price": "100–180", "veg_type": "100% plant-based", "jain": "Partial", "dishes": "Sourdough flatbreads ($120-160); salad bowls ($140-170); plant-based 'meatball' bowl; vegan brownies ($80-120)", "google": "4.5 (300+ aggregated)", "openrice": "4.0", "happycow": "4.6", "michelin": "Time Out top-pick", "review_flag": "Trusted", "status": "Open (5+ branches)", "notes": "Largest pure-plant chain in HK. Branches: Central, Quarry Bay, CWB, TST, Kai Tak.", "sources": "https://www.treehouse.eco", "lat": 22.28525, "lng": 114.16054375}, {"name_en": "Roots Eatery", "name_zh": "根本素食館", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 71.1, "tier": "B", "subtype": "Modern fine-dining veg (French-Cantonese)", "district": "Wan Chai (Star St)", "address": "G/F, 7 Sun St, Wan Chai", "phone": "+852 2833 1138", "website": "@rootseateryhk", "booking": "Inline, IG DM", "hours": "11:00–22:00", "price": "200–400", "veg_type": "Vegetarian (largely vegan-able)", "jain": "Partial", "dishes": "Goat-cheese cassava katsu; mushroom bourguignon; truffle risotto; tasting menu (~$480)", "google": "4.5 (80+)", "openrice": "4.1", "happycow": "4.4", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Chef-owner Stephanie Wong. Strong creative veg cooking; tasting menu recommended.", "sources": "Tatler Asia; Time Out HK", "lat": 22.2815625, "lng": 114.17595625}, {"name_en": "MANA! Fast Slow Food", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 69.0, "tier": "B", "subtype": "Plant-based fast-casual / cafe", "district": "Soho / Wan Chai", "address": "Soho: 8 Staunton St | Wan Chai: 8-10 Queen's Rd East", "phone": "+852 2851 1611", "website": "mana.hk", "booking": "Walk-in", "hours": "08:00–21:00 (varies)", "price": "100–180", "veg_type": "Plant-based (some dairy options)", "jain": "Partial", "dishes": "MANA! flats (~$110-150); buddha bowls ($120-150); raw cake slices; cold-pressed juices ($60-80)", "google": "4.3 (500+ aggregated)", "openrice": "3.8", "happycow": "4.5", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Long-running organic-leaning cafe. Pioneer of plant-based fast-casual in HK.", "sources": "https://mana.hk", "lat": 22.278062499999997, "lng": 114.17514375}, {"name_en": "Kind Kitchen by Green Common", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 66.4, "tier": "B", "subtype": "Premium plant-based casual", "district": "Central", "address": "Shop 1, 1/F, Nan Fung Place, 173 Des Voeux Rd Central", "phone": "+852 2110 0055", "website": "greencommon.com", "booking": "Phone, OpenTable", "hours": "11:30–22:00", "price": "120–220", "veg_type": "100% plant-based", "jain": "Partial", "dishes": "OmniPork dumplings; plant-based char siu rice; vegan dim sum; Beyond burger plate", "google": "4.3 (200+)", "openrice": "3.9", "happycow": "4.4", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Sister concept to Green Common retail. Strong showcase for OmniPork & plant-based meats.", "sources": "https://greencommon.com", "lat": 22.28453125, "lng": 114.15898125000001}, {"name_en": "Green Common (retail+cafe)", "name_zh": "綠田園 (retail brand)", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 54.2, "tier": "D", "subtype": "Plant-based retail + cafe chain", "district": "Multi-branch", "address": "Central B2 Alexandra House, 16-20 Chater Rd | TST Ocean Terminal Shop OTG61 | Tsuen Wan Nina Mall 2 Shop 101 | TKO Park Central Shop G05 | Causeway Bay (verify) | Tsuen Wan Citywalk (verify)", "phone": "+852 2810 6699 (Central)", "website": "greencommon.com", "booking": "Walk-in", "hours": "11:00–21:00", "price": "80–150", "veg_type": "Plant-based", "jain": "Partial", "dishes": "OmniPork bowls; plant-based dumplings; salads; smoothies", "google": "4.2 (200+ aggregated)", "openrice": "3.9", "happycow": "4.3", "michelin": "—", "review_flag": "Trusted", "status": "Open (verify each branch)", "notes": "Branch count has shifted post-2022 — confirm specific branch on Green Common website before visiting.", "sources": "https://greencommon.com", "lat": 22.2854375, "lng": 114.15785625000001}, {"name_en": "Beet", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 72.1, "tier": "B", "subtype": "Modern fine-dining veg tasting", "district": "Central", "address": "Shop C, G/F, 6-10 Kau U Fong, Central", "phone": "+852 2824 3898", "website": "beetrestaurant.com", "booking": "Phone, SevenRooms", "hours": "11:30–15:00; 17:30–23:00", "price": "300–600", "veg_type": "Vegetarian tasting (vegan on request)", "jain": "On request", "dishes": "Vegetarian tasting (~$380-480); seasonal veg plates; mushroom-driven mains", "google": "4.5 (90+)", "openrice": "4.1", "happycow": "4.5", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Boutique wellness-driven tasting menu. Not 100% vegan but vegan menu available on request.", "sources": "https://beetrestaurant.com", "lat": 22.2791875, "lng": 114.15935625}, {"name_en": "YUAN", "name_zh": "圓", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 79.6, "tier": "A", "subtype": "Modern Chinese vegetarian fine dining", "district": "Central", "address": "Shop 2, G/F Chinachem Hollywood Centre, 1-13 Hollywood Rd, Central", "phone": "+852 3196 8765", "website": "lubuds.com/yuan", "booking": "Phone, OpenTable", "hours": "12:00–15:00; 18:00–22:00 (closed Sun)", "price": "680–1,288", "veg_type": "Vegetarian (no garlic/onion / allium-free)", "jain": "Yes (de facto allium-free)", "dishes": "Matsutake soup; braised winter melon; crystal dumpling; 6-course lunch ($680); 12-course tasting ($1,280)", "google": "4.6 (100+)", "openrice": "4.3", "happycow": "—", "michelin": "Michelin Selected (2024–25); Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Allium-free policy makes this very Jain-friendly. One of HK's most ambitious veg fine-dining concepts.", "sources": "https://lubuds.com/yuan/; Michelin Guide", "lat": 22.2830625, "lng": 114.15491875000001}, {"name_en": "Sow Vegan", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 72.4, "tier": "B", "subtype": "Private-dining vegan tasting", "district": "Kwun Tong", "address": "Room 1102, 11/F Hung Tat Industrial Bldg, 43 Hung To Rd, Kwun Tong", "phone": "+852 9029 3009 (WhatsApp)", "website": "sowvegan.com", "booking": "WhatsApp; advance booking required", "hours": "By reservation", "price": "630+", "veg_type": "Vegan", "jain": "On request", "dishes": "8-course tasting menu ($630+); seasonal plant-driven courses", "google": "4.6 (70+)", "openrice": "—", "happycow": "4.6", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Industrial-building private-dining setup. 2-day lead time typical.", "sources": "https://www.sowvegan.com", "lat": 22.308925, "lng": 114.2257875}, {"name_en": "Veda Café & Bar", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 0.0, "tier": "—", "subtype": "Indian vegetarian (modern)", "district": "Central (Ovolo)", "address": "2 Arbuthnot Rd, Ovolo Central", "phone": "+852 3755 3067", "website": "veda.hk", "booking": "Phone", "hours": "12:00–15:00; 18:00–22:30", "price": "150–280", "veg_type": "Vegetarian (vegan options)", "jain": "On request", "dishes": "Dosa; pav bhaji; yellow dhal; paneer tikka", "google": "4.4 (120+)", "openrice": "4.1", "happycow": "4.5", "michelin": "Time Out coverage", "review_flag": "VERIFY before visiting", "status": "UNCERTAIN — Instagram has indicated 'permanently closed' but website still active. Call before going.", "notes": "Conflicting signals across sources. Phone or check Ovolo Central directly before booking.", "sources": "https://veda.hk; conflicting IG signals", "lat": 22.28540625, "lng": 114.1572625}, {"name_en": "Isoya", "name_zh": "居素屋", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 66.1, "tier": "B", "subtype": "Japanese vegetable kaiseki", "district": "Wan Chai", "address": "9/F, 83 Wan Chai Rd, Wan Chai", "phone": "+852 2893 7374", "website": "@isoyahk", "booking": "Phone", "hours": "12:00–15:00; 18:00–23:00 (closed Sun)", "price": "250–500", "veg_type": "Vegetarian", "jain": "Partial", "dishes": "Tasting set ($320-450); vegan tempura; tofu kaiseki; daily soymilk-based courses", "google": "4.4 (80+)", "openrice": "4.1", "happycow": "4.5", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "One of HK's only dedicated Japanese vegetarian restaurants. Owner imports Kyoto soymilk daily.", "sources": "HappyCow; OpenRice", "lat": 22.27678125, "lng": 114.1737375}, {"name_en": "Locofama", "name_zh": "樂農", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 66.1, "tier": "B", "subtype": "Organic farm-to-table cafe", "district": "Sai Ying Pun", "address": "G/F, 9-13 Fuk Sau Lane, Sai Ying Pun", "phone": "+852 2547 7668", "website": "locofama.com", "booking": "Phone, walk-in", "hours": "Mon-Fri 12:00–15:00, 18:00–22:00; Sat-Sun 11:00–22:00", "price": "120–220", "veg_type": "Veg-friendly (mixed; full vegan menu)", "jain": "Partial", "dishes": "Organic salads ($130-160); vegan pasta ($140-180); plant-based burger; juice cleanses", "google": "4.3 (200+)", "openrice": "3.9", "happycow": "4.3", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Long-running organic local-leaning cafe. Strong vegan & gluten-free options.", "sources": "https://locofama.com", "lat": 22.2894875, "lng": 114.1454625}, {"name_en": "LN Fortunate Coffee", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 63.2, "tier": "C", "subtype": "Vegan cafe", "district": "Sai Ying Pun", "address": "G/F, Altro, 118 Second St, Sai Ying Pun", "phone": "+852 2858 3898", "website": "@lncoffeehk", "booking": "Walk-in", "hours": "09:00–22:00", "price": "70–140", "veg_type": "Vegan", "jain": "Partial", "dishes": "Vegan club sandwich ($120); noodle soup ($100-130); coffee ($60-80); Asian-style mains", "google": "4.3 (90+)", "openrice": "4.0", "happycow": "4.2", "michelin": "—", "review_flag": "Trusted", "status": "Open (recent activity Dec 2025)", "notes": "Affordable all-day vegan cafe. International offshoot from Taiwan/Indonesia chain.", "sources": "OpenRice", "lat": 22.28351875, "lng": 114.14249375}, {"name_en": "Moksa", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 65.2, "tier": "B", "subtype": "Vegan Asian fusion", "district": "Wan Chai", "address": "2/F, Harvard Commercial Bldg, 105-111 Thomson Rd, Wan Chai", "phone": "—", "website": "@moksavegan", "booking": "IG DM", "hours": "11:00–15:00; 17:00–22:00 (closed Sun)", "price": "100–180", "veg_type": "100% vegan", "jain": "Partial", "dishes": "Asian fusion bowls ($130-160); vegan specials; tofu mains", "google": "4.3 (60+)", "openrice": "—", "happycow": "4.4", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Intimate space, cash preferred.", "sources": "Earth.org review; HappyCow", "lat": 22.2798125, "lng": 114.1763}, {"name_en": "Root Vegan", "name_zh": "本原純素", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 68.6, "tier": "B", "subtype": "Plant-based casual", "district": "Central", "address": "Shop 102-103, 1/F Sunwise Bldg, 112-114 Wellington St, Central", "phone": "+852 9850 9558", "website": "@rootvegan.hk", "booking": "Phone, walk-in", "hours": "12:00–21:30", "price": "100–160", "veg_type": "100% vegan", "jain": "Partial", "dishes": "Salad bowls ($120-150); smoothies ($70-90); rice bowls ($130-170)", "google": "4.4 (80+)", "openrice": "—", "happycow": "4.5", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Plant-based cafe with outdoor seating.", "sources": "Instagram; HappyCow", "lat": 22.28396875, "lng": 114.15885625}, {"name_en": "Wanaka Cafe", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 67.7, "tier": "B", "subtype": "Plant-based cafe (Blue House courtyard)", "district": "Wan Chai", "address": "8 King Sing St (Blue House courtyard), Wan Chai", "phone": "—", "website": "@wanaka.hk", "booking": "Walk-in", "hours": "08:00–21:00", "price": "70–130", "veg_type": "Plant-based", "jain": "Partial", "dishes": "Smoothie bowls ($90-110); plant-based burger ($99); avocado sandwich ($85)", "google": "4.4 (75+)", "openrice": "—", "happycow": "4.4", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Inside the Blue House (heritage tong-lau). Dog-friendly courtyard.", "sources": "OpenRice; HappyCow", "lat": 22.276531249999998, "lng": 114.172175}, {"name_en": "OVO Cafe", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 72.0, "tier": "B", "subtype": "Vegetarian cafe", "district": "Wan Chai", "address": "G/F, 1 Wan Chai Rd (Old Wan Chai Market)", "phone": "+852 6511 4051", "website": "@ovocafe.green", "booking": "Walk-in", "hours": "11:30–21:30 (last order 20:45)", "price": "100–200", "veg_type": "Vegetarian", "jain": "Partial", "dishes": "Salads ($120-150); specialty coffee ($60-80); pastries ($50-70); brunch sets", "google": "4.5 (110+)", "openrice": "—", "happycow": "4.5", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Inside heritage Old Wan Chai Market building. Stylish, light-filled.", "sources": "OpenRice", "lat": 22.2791875, "lng": 114.1733625}, {"name_en": "Mayse Artisan Bakery", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 78.8, "tier": "A", "subtype": "Vegan bakery", "district": "Tai Po", "address": "Tai Mei Tuk, Tai Po", "phone": "—", "website": "@mayseartisanbakery", "booking": "Walk-in", "hours": "Verify (weekend-heavy)", "price": "60–150", "veg_type": "Vegan", "jain": "Partial", "dishes": "Sourdough bread; vegan pastries; sourdough pizza; vegan cakes", "google": "4.6 (100+)", "openrice": "—", "happycow": "4.7", "michelin": "Time Out HK feature", "review_flag": "Trusted", "status": "Open", "notes": "Latvian family-run; northern European recipes. Quiet location near Plover Cove.", "sources": "https://www.timeout.com/hong-kong; Honeycombers", "lat": 22.4509375, "lng": 114.16165625000001}, {"name_en": "Mayse Pizzeria", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 67.2, "tier": "B", "subtype": "Vegan pizza / sourdough", "district": "Jordan", "address": "G/F 5-11 Woosung St, Jordan", "phone": "—", "website": "facebook.com/maysebakery", "booking": "Walk-in", "hours": "Wed-Sun 12:00–21:00 (varies)", "price": "80–150", "veg_type": "Vegan", "jain": "Partial", "dishes": "Vegan pizzas; panini; sourdough breads", "google": "4.3 (100+)", "openrice": "—", "happycow": "4.5", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Sister project to Mayse Artisan Bakery. Approx 7 min walk from Jordan MTR.", "sources": "HappyCow; Time Out HK", "lat": 22.308225, "lng": 114.17118749999999}, {"name_en": "VW Vegan Cafe", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 83.3, "tier": "A", "subtype": "Vegan cafe / desserts", "district": "Tai Po", "address": "Shop 227F-06, 2/F Plover Cove Garden Arcade, 3 Plover Cove Rd, Tai Po", "phone": "+852 5466 9854", "website": "facebook.com/v.wvegan", "booking": "Phone", "hours": "Wed-Fri 11:30–18:00; Sat-Sun 11:30–21:00", "price": "50–120", "veg_type": "Vegan", "jain": "Partial", "dishes": "Vegan lemon donuts; blueberry-cheesecake tarts; mochi brownies; bagels", "google": "4.7 (150+)", "openrice": "—", "happycow": "4.7", "michelin": "Time Out HK + Green Queen", "review_flag": "Trusted", "status": "Open", "notes": "Newer 2025 vegan dessert cafe. High-rated — fresh signal.", "sources": "Time Out HK; Green Queen", "lat": 22.4506875, "lng": 114.1633125}, {"name_en": "The Cakery (Lee Garden)", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 76.1, "tier": "A", "subtype": "Vegan / refined-sugar-free bakery", "district": "Causeway Bay", "address": "Shop 124, 1/F Lee Garden Two, 28 Yun Ping Rd, CWB", "phone": "+852 6683 3833", "website": "thecakery.com", "booking": "Walk-in", "hours": "10:00–20:00", "price": "60–140", "veg_type": "Vegetarian (vegan + GF options)", "jain": "Partial", "dishes": "Sugar-free cakes; gluten-free cupcakes; vegan tarts; signature 'guilt-free' birthday cakes", "google": "4.4 (250+)", "openrice": "—", "happycow": "4.4", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Multi-branch HK (also Landmark/IFC). Very strong vegan dessert option.", "sources": "https://www.thecakery.com; Tatler Asia", "lat": 22.282231250000002, "lng": 114.18706250000001}, {"name_en": "The Cakery (Landmark)", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 76.1, "tier": "A", "subtype": "Vegan / refined-sugar-free bakery", "district": "Central", "address": "Shop 301, The Landmark, 15 Queen's Rd Central", "phone": "+852 6683 3833", "website": "thecakery.com", "booking": "Walk-in", "hours": "10:00–20:00", "price": "60–140", "veg_type": "Vegetarian (vegan + GF options)", "jain": "Partial", "dishes": "Sugar-free cakes; vegan cupcakes; chai-spice tart; matcha cake", "google": "4.4 (250+)", "openrice": "—", "happycow": "4.4", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Sister branch to Lee Garden — same menu, different traffic profile.", "sources": "https://www.thecakery.com", "lat": 22.28309375, "lng": 114.15441875}, {"name_en": "Teakha", "name_zh": "茶。家", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 84.6, "tier": "A", "subtype": "Tea house / cafe (veg-friendly)", "district": "Sheung Wan", "address": "B, 18 Tai Ping Shan St, Sheung Wan", "phone": "+852 2858 9185", "website": "teakha.com", "booking": "Walk-in", "hours": "11:00–19:00 (closed Tue)", "price": "80–180", "veg_type": "Vegetarian-friendly (most of menu is veg)", "jain": "Partial", "dishes": "Single-origin teas; homemade scones; savoury veg toasts; cake of the day", "google": "4.6 (500+)", "openrice": "—", "happycow": "4.4", "michelin": "Tatler / Honeycombers feature", "review_flag": "Trusted", "status": "Open", "notes": "Pioneered HK's craft-tea movement (Nana Chan). Mostly veg menu (some dairy).", "sources": "https://www.teakha.com; Tatler Asia", "lat": 22.289312499999998, "lng": 114.15266875}, {"name_en": "Plantation Tea Bar", "name_zh": "—", "category": "B. Modern Plant-Based / Fine", "color": "#4ecdc4", "score": 77.1, "tier": "A", "subtype": "Tea bar / cafe (veg-friendly)", "district": "Sai Ying Pun", "address": "15 High St, Sai Ying Pun", "phone": "+852 3607 0680", "website": "plantation.hk", "booking": "Walk-in", "hours": "11:00–19:00", "price": "60–150", "veg_type": "Vegetarian-friendly", "jain": "Partial", "dishes": "Specialty teas; vegan-leaning pastries; verify vegan options before ordering", "google": "4.4 (200+)", "openrice": "—", "happycow": "—", "michelin": "Tatler feature", "review_flag": "Trusted", "status": "Open", "notes": "By Nana Chan (Teakha founder). Focuses on craft tea + small bites.", "sources": "https://plantation.hk; Tatler Asia", "lat": 22.2848625, "lng": 114.14005625}, {"name_en": "Amber", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 93.5, "tier": "S", "subtype": "Modern French fine dining", "district": "Central", "address": "7/F The Landmark Mandarin Oriental, 15 Queen's Rd Central", "phone": "+852 2132 0066", "website": "mandarinoriental.com/en/hong-kong/the-landmark/dine/amber", "booking": "OpenTable, phone", "hours": "Lunch 12:00–14:30 (Mon-Sat); Dinner 18:30–22:30", "price": "Veg 6-course ~$2,058; 8-course ~$2,888", "veg_type": "Dedicated vegetarian + dairy-free option", "jain": "On request", "dishes": "Vegetarian 6/8-course tasting; root-vegetable courses; mushroom courses; dairy-free option available", "google": "4.5 (1,000+)", "openrice": "4.4", "happycow": "—", "michelin": "★★★ Michelin (2025); Michelin Green Star", "review_flag": "Trusted", "status": "Open", "notes": "Veg menu priced same as regular menu. Chef Richard Ekkebus. One of Asia's top fine-dining vegetarian experiences.", "sources": "https://www.mandarinoriental.com/en/hong-kong/the-landmark/dine/amber; Michelin Guide", "lat": 22.28025, "lng": 114.15423125000001}, {"name_en": "Forum (Fook Lam Moon-affiliated chef)", "name_zh": "富臨飯店", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 85.7, "tier": "S", "subtype": "Cantonese fine dining", "district": "Causeway Bay", "address": "1-2/F Sino Plaza, 255-257 Gloucester Rd, CWB", "phone": "+852 2891 2555", "website": "forumrestaurant.com.hk", "booking": "Phone", "hours": "Lunch 12:00–15:00; Dinner 18:00–23:00", "price": "Veg tasting ~$1,600–2,000", "veg_type": "Dedicated 7-course veg tasting", "jain": "On request", "dishes": "7-course veg tasting; mushroom & cordyceps; braised tofu; double-boiled vegetable soup", "google": "4.4 (200+)", "openrice": "4.2", "happycow": "—", "michelin": "★★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Famous for braised abalone — but veg tasting is also celebrated. Pre-order in advance.", "sources": "Michelin Guide; Tatler Asia", "lat": 22.27748125, "lng": 114.188}, {"name_en": "Feuille", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 75.7, "tier": "A", "subtype": "Plant-forward modern French", "district": "Central", "address": "12/F H Code, 45 Pottinger St, Central", "phone": "+852 2522 6699", "website": "feuille.com.hk", "booking": "SevenRooms", "hours": "Dinner only Tue-Sat", "price": "Vegetal menu ~$1,350", "veg_type": "Dedicated 'Menu Vegetal' tasting (vegan-leaning)", "jain": "Partial", "dishes": "Root-to-shoot tasting: seeds, leaves, stems, roots, flowers (seasonal); 80%+ local produce", "google": "4.5 (80+)", "openrice": "4.2", "happycow": "—", "michelin": "Michelin Selected; Green Star (verify)", "review_flag": "Trusted", "status": "Open", "notes": "Concept by David Toutain (Paris). Vegetal-driven cooking; full vegetable menu is the highlight.", "sources": "https://feuille.com.hk; Tatler Asia", "lat": 22.281, "lng": 114.1585125}, {"name_en": "Roganic Hong Kong", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 80.8, "tier": "A", "subtype": "Modern European (Green-star)", "district": "Causeway Bay", "address": "Shop 8, UG/F, Sino Plaza, 255-257 Gloucester Rd, CWB", "phone": "+852 3971 8192", "website": "roganic.com.hk", "booking": "SevenRooms, phone", "hours": "Lunch + Dinner (verify)", "price": "Veg tasting ~$1,600–1,800", "veg_type": "Dedicated vegetarian + vegan tasting", "jain": "On request", "dishes": "Marjoram-brined cabbage; soy-miso glazed shimeji; truffle pudding; seasonal vegetable courses", "google": "4.5 (200+)", "openrice": "4.3", "happycow": "—", "michelin": "★ Michelin + Michelin Green Star (HK's first)", "review_flag": "Trusted", "status": "Open", "notes": "Simon Rogan concept. Pre-book the veg tasting; not always on default menu.", "sources": "https://www.roganic.com.hk; Michelin Guide", "lat": 22.281575, "lng": 114.18590625}, {"name_en": "Arcane", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 80.8, "tier": "A", "subtype": "Modern European", "district": "Central", "address": "3/F, 18 On Lan St, Central", "phone": "+852 2728 0178", "website": "arcane.hk", "booking": "SevenRooms, phone", "hours": "Lunch + dinner (closed Sun)", "price": "Vegan menu ~$750; veg ~$650", "veg_type": "Dedicated 5-course veg + 5-course vegan menus", "jain": "On request", "dishes": "Chilled gazpacho; roasted cauliflower; imam bayildi; mushroom risotto", "google": "4.5 (200+)", "openrice": "4.3", "happycow": "—", "michelin": "★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Chef Shane Osborn (ex-Pied à Terre). Some produce grown on restaurant patio.", "sources": "https://arcane.hk; Green Queen HK", "lat": 22.282375, "lng": 114.15698125}, {"name_en": "Tate Dining Room", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 84.2, "tier": "A", "subtype": "Modern Cantonese / 'Ode' tasting", "district": "Sheung Wan / Central", "address": "210 Hollywood Rd, Sheung Wan", "phone": "+852 2555 2172", "website": "tate.com.hk", "booking": "Phone, SevenRooms", "hours": "Lunch + dinner (closed Sun-Mon)", "price": "Lunch veg ~$850–1,000", "veg_type": "Dedicated 'Ode to Earth' 6-course veg lunch", "jain": "Partial", "dishes": "Seasonal Ode menu: seeds, leaves, bulbs, stems, fruits, roots, flowers; tea pairings", "google": "4.5 (200+)", "openrice": "4.4", "happycow": "—", "michelin": "★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Chef Vicky Lau. Ode to Earth is the flagship veg lunch — well-regarded.", "sources": "https://www.tate.com.hk; Tatler Asia", "lat": 22.28271875, "lng": 114.16163750000001}, {"name_en": "Aaharn", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 77.7, "tier": "A", "subtype": "Thai fine dining", "district": "Central (Tai Kwun)", "address": "JC Contemporary, Tai Kwun, 10 Hollywood Rd, Central", "phone": "+852 2555 6111", "website": "aaharn.hk", "booking": "Phone, SevenRooms", "hours": "Lunch + dinner", "price": "Veg set $488–788", "veg_type": "Dedicated vegetarian set menu", "jain": "On request", "dishes": "Vegetarian curries; veg som tum; Thai herb salads; coconut sticky rice", "google": "4.4 (200+)", "openrice": "4.2", "happycow": "—", "michelin": "★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Chef David Thompson. Veg tasting widely praised.", "sources": "https://www.aaharn.hk; Tatler Asia", "lat": 22.284625, "lng": 114.15623125}, {"name_en": "Chaat", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 85.5, "tier": "S", "subtype": "Modern Indian fine dining", "district": "Tsim Sha Tsui", "address": "5/F Rosewood Hong Kong, Victoria Dockside, 18 Salisbury Rd", "phone": "+852 3891 8732", "website": "rosewoodhotels.com/chaat", "booking": "OpenTable, SevenRooms", "hours": "Lunch + dinner", "price": "Veg/vegan tasting $800–1,200", "veg_type": "Dedicated vegetarian + vegan tasting menus", "jain": "On request", "dishes": "Tandoori paneer tikka; dal panchmel; palak paneer; veg biryani", "google": "4.6 (300+)", "openrice": "4.3", "happycow": "—", "michelin": "★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Chef Manav Tuli (formerly Campbell House). Strong plant-based focus.", "sources": "https://www.rosewoodhotels.com/en/hong-kong/dining/chaat", "lat": 22.298781249999998, "lng": 114.17441875}, {"name_en": "L'Atelier de Joël Robuchon", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 92.2, "tier": "S", "subtype": "French fine dining", "district": "Central", "address": "Shop 401, The Landmark, 15 Queen's Rd Central", "phone": "+852 2166 9000", "website": "robuchon.hk", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "Veg tasting ~$1,300–1,600", "veg_type": "Dedicated 'Food & Life' vegetarian tasting (vegan on request)", "jain": "On request", "dishes": "Tomato candies w/ citron oil; beetroot-avocado salad; mushroom tartelette", "google": "4.5 (500+)", "openrice": "4.4", "happycow": "—", "michelin": "★★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Vegetal tasting is named 'Food & Life'. Pre-book.", "sources": "https://www.landmark.hk/en/dine/latelier-de-joel-robuchon", "lat": 22.2853125, "lng": 114.16035625}, {"name_en": "Caprice", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 95.6, "tier": "S", "subtype": "French fine dining", "district": "Central", "address": "6/F Four Seasons, 8 Finance St, Central", "phone": "+852 3196 8860", "website": "fourseasons.com/hongkong/caprice", "booking": "OpenTable, phone", "hours": "Lunch + dinner (closed Sun-Mon lunch)", "price": "Veg ~$1,400–2,200 (on request)", "veg_type": "Vegetarian / vegan on request", "jain": "On request", "dishes": "Veg version of prix-fixe; seasonal vegetable courses; cheese trolley (omit for vegan)", "google": "4.6 (500+)", "openrice": "4.4", "happycow": "—", "michelin": "★★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Notify when booking — veg menu is bespoke.", "sources": "https://www.fourseasons.com/hongkong/dining/restaurants/caprice/", "lat": 22.27834375, "lng": 114.16135625000001}, {"name_en": "Mott 32", "name_zh": "卅二公館", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 79.0, "tier": "A", "subtype": "Modern Cantonese (with plant-based menu)", "district": "Central", "address": "B/F Standard Chartered Bank Bldg, 4-4A Des Voeux Rd Central", "phone": "+852 2885 8688", "website": "mott32.com", "booking": "OpenTable, SevenRooms", "hours": "Lunch + dinner", "price": "À la carte $400–700; plant-based menu available", "veg_type": "Dedicated 11-dish plant-based menu", "jain": "On request", "dishes": "Vegan soup dumplings; vegan Peking 'duck' (tofu); wok-fried lotus root; vegan dim sum", "google": "4.4 (1,500+)", "openrice": "4.1", "happycow": "—", "michelin": "Tatler-listed; SCMP coverage", "review_flag": "Trusted", "status": "Open", "notes": "Plant-based menu launched in partnership with Green Monday R&D. Loud / scene-y atmosphere.", "sources": "https://mott32.com/hong-kong/", "lat": 22.28309375, "lng": 114.1560125}, {"name_en": "Lung King Heen", "name_zh": "龍景軒", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 93.5, "tier": "S", "subtype": "Cantonese dim sum / fine dining", "district": "Central", "address": "4/F Four Seasons, 8 Finance St, Central", "phone": "+852 3196 8880", "website": "fourseasons.com/hongkong", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "Dim sum $400–700; tasting higher", "veg_type": "Marked vegetarian dim sum + dishes ('v' on menu)", "jain": "On request", "dishes": "Vegetarian dim sum trio; mushroom xiao long bao; braised tofu; vegan dim sum on request", "google": "4.5 (1,000+)", "openrice": "4.4", "happycow": "—", "michelin": "★★★ Michelin (note: status may have shifted to ★★ in some years; verify)", "review_flag": "Trusted", "status": "Open", "notes": "First Chinese restaurant to receive 3 Michelin stars (historic). Pre-notify for vegan.", "sources": "https://www.fourseasons.com/hongkong/dining/restaurants/lung_king_heen/", "lat": 22.27884375, "lng": 114.1571375}, {"name_en": "Tin Lung Heen", "name_zh": "天龍軒", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 87.6, "tier": "S", "subtype": "Cantonese dim sum", "district": "Tsim Sha Tsui (Ritz-Carlton)", "address": "102/F The Ritz-Carlton, 1 Austin Rd West, ICC, West Kowloon", "phone": "+852 2263 2270", "website": "ritzcarlton.com", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "Dim sum $500–800", "veg_type": "Vegetarian dim sum section", "jain": "On request", "dishes": "Veg dumplings; mushroom selections; truffle veg dim sum", "google": "4.5 (600+)", "openrice": "4.4", "happycow": "—", "michelin": "★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "102nd floor view. Pre-notify for vegan dim sum.", "sources": "https://www.ritzcarlton.com/en/hotels/hong-kong", "lat": 22.29646875, "lng": 114.17029375}, {"name_en": "Shang Palace", "name_zh": "香宮", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 87.8, "tier": "S", "subtype": "Cantonese dim sum", "district": "Tsim Sha Tsui (Kowloon Shangri-La)", "address": "L/L, Kowloon Shangri-La, 64 Mody Rd, TST East", "phone": "+852 2733 8754", "website": "shangri-la.com", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "Dim sum $500–900", "veg_type": "Set vegetarian dim sum menu (vegan available)", "jain": "On request", "dishes": "Steamed jade dumpling (matsutake + veg); beancurd-skin roll; veg Peking 'duck'", "google": "4.5 (700+)", "openrice": "4.3", "happycow": "—", "michelin": "★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Pre-notify 1 day for full vegan dim sum.", "sources": "https://www.shangri-la.com/hongkong/kowloonshangrila/", "lat": 22.29409375, "lng": 114.17545}, {"name_en": "Ming Court", "name_zh": "明閣", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 83.6, "tier": "A", "subtype": "Cantonese (with Omnipork partnership)", "district": "Mong Kok / Wan Chai (Cordis branches)", "address": "6/F Cordis, 555 Shanghai St, Mong Kok", "phone": "+852 3552 3300", "website": "cordishotels.com", "booking": "OpenTable", "hours": "Lunch + dinner", "price": "$500–900", "veg_type": "Dedicated veg section (Wan Chai branch features Omnipork dishes)", "jain": "On request", "dishes": "Braised winter melon; Omnipork dim sum; white fungus in superior broth; veg lo mai gai", "google": "4.4 (500+)", "openrice": "4.3", "happycow": "—", "michelin": "★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Wan Chai outpost partnered with Green Monday for plant-based dim sum.", "sources": "https://www.cordishotels.com/en/hong-kong/dine/ming-court/", "lat": 22.27853125, "lng": 114.17576875}, {"name_en": "Yan Toh Heen / Lai Ching Heen", "name_zh": "欣圖軒", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 85.4, "tier": "S", "subtype": "Cantonese fine dining", "district": "Tsim Sha Tsui", "address": "Lower lobby, Regent Hong Kong (formerly InterContinental), 18 Salisbury Rd, TST", "phone": "+852 2313 2243", "website": "regenthongkong.com", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "$500–800", "veg_type": "Vegetarian dim sum + à la carte", "jain": "On request", "dishes": "Steamed matsutake & yellow-fungus dumpling; crispy tofu-sheet roll w/ mushroom; pumpkin-mushroom dumpling", "google": "4.5 (300+)", "openrice": "4.3", "happycow": "—", "michelin": "★★ Michelin", "review_flag": "Trusted", "status": "Open (rebranded under Regent)", "notes": "Recently rebranded with hotel reflag. Excellent veg dim sum reputation.", "sources": "https://www.regenthongkong.com", "lat": 22.2956875, "lng": 114.1685125}, {"name_en": "Duddell's", "name_zh": "都爹利會館", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 78.1, "tier": "A", "subtype": "Cantonese (modern)", "district": "Central", "address": "3-4/F, Shanghai Tang Mansion, 1 Duddell St, Central", "phone": "+852 2525 9191", "website": "duddells.co", "booking": "OpenTable, SevenRooms", "hours": "Lunch + dinner", "price": "Brunch sets $638–2,688 (including AYCE veg dim sum)", "veg_type": "Vegetarian all-you-can-eat dim sum brunch", "jain": "Partial", "dishes": "Omnipork dumplings; veg har gow; veg cheung fun; veg sweet & sour 'pork'", "google": "4.4 (700+)", "openrice": "4.2", "happycow": "—", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Weekend dim sum brunch is the best veg moment. Multiple AYCE tiers.", "sources": "https://www.duddells.co", "lat": 22.28396875, "lng": 114.1543875}, {"name_en": "Carbone", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 82.3, "tier": "A", "subtype": "Italian-American", "district": "Central (LKF Tower)", "address": "9/F LKF Tower, 33 Wyndham St, Central", "phone": "+852 2593 2593", "website": "carbone.com.hk", "booking": "SevenRooms", "hours": "Lunch + dinner", "price": "$600–1,200", "veg_type": "Vegetarian pasta + sides; not dedicated tasting", "jain": "Limited", "dishes": "Vegetarian pasta; mushroom risotto; antipasti veg plates", "google": "4.5 (1,000+)", "openrice": "4.2", "happycow": "—", "michelin": "Bib Gourmand (verify); Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Black Sheep portfolio. Italian comfort cuisine; veg options are decent but not the headline.", "sources": "https://www.carbone.com.hk", "lat": 22.28490625, "lng": 114.154325}, {"name_en": "Otto e Mezzo Bombana", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 92.2, "tier": "S", "subtype": "Italian fine dining", "district": "Central", "address": "Shop 202, Alexandra House, 18 Chater Rd, Central", "phone": "+852 2537 8859", "website": "ottoemezzobombana.com", "booking": "OpenTable, phone", "hours": "Lunch + dinner (closed Sun)", "price": "$1,200–1,800+", "veg_type": "Vegetarian + gluten-free options (à la carte)", "jain": "Limited", "dishes": "Tagliolini al burro w/ Parmesan + black truffle; white-truffle pasta (autumn); risotto Milanese (off-menu veg)", "google": "4.5 (500+)", "openrice": "4.4", "happycow": "—", "michelin": "★★★ Michelin (first Italian outside Italy at 3★)", "review_flag": "Trusted", "status": "Open", "notes": "Pasta-heavy means strong veg options. Notify in advance for full veg tasting.", "sources": "https://www.ottoemezzobombana.com", "lat": 22.28421875, "lng": 114.16116875}, {"name_en": "Dim Sum Library", "name_zh": "點心圖書館", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 70.7, "tier": "B", "subtype": "Contemporary Cantonese dim sum", "district": "Admiralty", "address": "Shop 003, G/F Pacific Place, 88 Queensway", "phone": "+852 2110 0688", "website": "dimsumlibrary.com.hk", "booking": "OpenTable", "hours": "Lunch + dinner", "price": "$300–600", "veg_type": "Dedicated veg section (~11 items)", "jain": "Partial", "dishes": "Wild mushroom & beetroot dumplings; crispy purple-cabbage cheung fun; veg har gow", "google": "4.3 (1,000+)", "openrice": "4.0", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Contemporary takes — colourful veg dim sum.", "sources": "https://dimsumlibrary.com.hk", "lat": 22.281975, "lng": 114.16801875}, {"name_en": "The Chairman", "name_zh": "大班樓", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 72.7, "tier": "B", "subtype": "Cantonese (heritage-driven)", "district": "Central", "address": "3 Kau U Fong, Central", "phone": "+852 2555 2202", "website": "thechairmangroup.com", "booking": "Phone (set menus emailed)", "hours": "Dinner; lunch closed/varies", "price": "Set menus $700–1,200+", "veg_type": "Limited veg integration; veg dish on default menu only", "jain": "Limited", "dishes": "Vegetable choice with seasonal stir-fry; integrated within multi-course set", "google": "4.5 (300+)", "openrice": "4.4", "happycow": "—", "michelin": "★ Michelin; World's 50 Best", "review_flag": "Mixed (few veg-specific reviews)", "status": "Open", "notes": "Famous for seafood. Veg accommodation requires advance notice — not a destination veg restaurant per se.", "sources": "https://www.thechairmangroup.com", "lat": 22.28371875, "lng": 114.16016875000001}, {"name_en": "Hutong", "name_zh": "胡同", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 64.6, "tier": "C", "subtype": "Northern Chinese", "district": "Tsim Sha Tsui", "address": "28/F One Peking, 1 Peking Rd, TST", "phone": "+852 3428 8342", "website": "hutong.com.hk", "booking": "OpenTable", "hours": "Lunch + dinner", "price": "$500–900", "veg_type": "Veg section on menu (smaller than Cantonese counterparts)", "jain": "Limited", "dishes": "Crispy eggplant w/ fermented bean (~$218 signature); mushroom stir-fries", "google": "4.4 (1,000+)", "openrice": "4.2", "happycow": "—", "michelin": "—", "review_flag": "Mixed", "status": "Open", "notes": "Spectacular harbour view. Veg options exist but cuisine is meat-leaning.", "sources": "https://hutong.com.hk", "lat": 22.298312499999998, "lng": 114.17185625}, {"name_en": "Rajasthan Rifles", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 72.7, "tier": "B", "subtype": "Anglo-Indian", "district": "The Peak", "address": "Shop 9, The Peak Galleria, 118 Peak Rd", "phone": "+852 2388 8874", "website": "rajasthanrifles.com", "booking": "SevenRooms, phone", "hours": "Lunch + dinner", "price": "$600–1,000", "veg_type": "Vegetarian dishes (paneer, dal)", "jain": "On request", "dishes": "Paneer shashlik; dal rifleswala; laccha paratha; veg samosa chaat", "google": "4.3 (300+)", "openrice": "4.1", "happycow": "—", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Black Sheep Restaurants. Menu by Palash Mitra (New Punjab Club).", "sources": "https://www.rajasthanrifles.com", "lat": 22.273100000000003, "lng": 114.15149375}, {"name_en": "T'ang Court", "name_zh": "唐閣", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 97.2, "tier": "S", "subtype": "Cantonese fine dining", "district": "Tsim Sha Tsui (Langham)", "address": "1/F The Langham, 8 Peking Rd, TST", "phone": "+852 2375 1133", "website": "langhamhotels.com", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "800–1,500", "veg_type": "Vegetarian tasting menu available", "jain": "On request", "dishes": "Vegetarian tasting; mushroom-driven courses; veg dim sum on request", "google": "4.6 (1,000+)", "openrice": "4.4", "happycow": "—", "michelin": "★★★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "One of HK's longest-running 3-star Cantonese restaurants. Pre-order veg tasting.", "sources": "https://www.langhamhotels.com; Michelin Guide", "lat": 22.300156249999997, "lng": 114.171825}, {"name_en": "Sun Tung Lok", "name_zh": "新同樂", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 70.9, "tier": "B", "subtype": "Cantonese fine dining", "district": "Tsim Sha Tsui", "address": "47 Kimberley Rd, TST (verify current location)", "phone": "+852 2723 8222", "website": "suntunglok.com.hk", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "400–1,200", "veg_type": "Veg-on-request; mushroom & tofu specialties", "jain": "On request", "dishes": "Claypot lettuce (veg version); veg dim sum; double-boiled vegetable soup", "google": "4.4 (500+)", "openrice": "4.2", "happycow": "—", "michelin": "★★ Michelin", "review_flag": "Trusted", "status": "Open (verify current branch)", "notes": "Has had multiple branches over the years. Confirm location before booking.", "sources": "https://www.suntunglok.com.hk; Michelin Guide", "lat": 22.301312499999998, "lng": 114.1692625}, {"name_en": "Belon", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 57.3, "tier": "C", "subtype": "Modern French / European", "district": "Soho / Central", "address": "41 Elgin St, Soho, Central (verify after recent chef changes)", "phone": "+852 2152 2872", "website": "belonsoho.com", "booking": "SevenRooms", "hours": "Dinner only (verify)", "price": "700–1,400", "veg_type": "Veg accommodation by request (48hr notice)", "jain": "Limited", "dishes": "Vegetarian course adaptations on request", "google": "4.3 (300+)", "openrice": "—", "happycow": "—", "michelin": "★ Michelin (verify current status)", "review_flag": "Mixed (chef changes)", "status": "Verify", "notes": "Has had ownership/chef shifts since 2020. Best to confirm operational status and veg accommodation by phone before booking.", "sources": "https://www.belonsoho.com; Michelin Guide archive", "lat": 22.28453125, "lng": 114.16048125}, {"name_en": "ÉPURE", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 82.4, "tier": "A", "subtype": "Modern French fine dining", "district": "Tsim Sha Tsui (Harbour City)", "address": "Shop 403, 4/F Ocean Terminal, Harbour City, TST", "phone": "+852 3185 8338", "website": "epure.hk", "booking": "OpenTable, phone", "hours": "Lunch + dinner", "price": "800–1,500", "veg_type": "Vegetarian tasting menu (on request)", "jain": "On request", "dishes": "7-course veg tasting; mushroom & root-vegetable plates; pre-dessert + dessert", "google": "4.5 (300+)", "openrice": "4.3", "happycow": "—", "michelin": "★ Michelin", "review_flag": "Trusted", "status": "Open", "notes": "Pierre Gagnaire group concept. Notify in advance for veg tasting.", "sources": "https://www.epure.hk; Michelin Guide", "lat": 22.29828125, "lng": 114.16979375}, {"name_en": "Hansik Goo", "name_zh": "—", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 70.3, "tier": "B", "subtype": "Modern Korean fine dining", "district": "Central", "address": "1/F The Wellington, 198 Wellington St, Central (verify post-relocation)", "phone": "+852 3611 1811", "website": "hansikgoo.hk", "booking": "SevenRooms, phone", "hours": "Lunch + dinner", "price": "500–1,200", "veg_type": "Vegetarian options on request", "jain": "Limited", "dishes": "Vegetable banchan platter; mushroom dolsot; vegetable jeon", "google": "4.5 (350+)", "openrice": "4.2", "happycow": "—", "michelin": "★ Michelin", "review_flag": "Trusted", "status": "Open (recently relocated — verify)", "notes": "Chef Mingoo Kang (ex-Mingles Seoul). Sun-prepared/preserved veg highlights.", "sources": "https://www.hansikgoo.hk; Michelin Guide", "lat": 22.28459375, "lng": 114.156075}, {"name_en": "Chilli Fagara", "name_zh": "麻辣燙", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 66.7, "tier": "B", "subtype": "Sichuan (with strong veg section)", "district": "Central", "address": "7 Old Bailey St, Central", "phone": "+852 2796 6866", "website": "chillifagara.com", "booking": "Phone, walk-in", "hours": "11:30–15:00; 17:00–23:00", "price": "150–350", "veg_type": "Mixed (dedicated veg menu)", "jain": "On request", "dishes": "Hot-and-spicy veg pot ($218); spicy tofu; mapo tofu (veg); veg dan dan noodles", "google": "4.5 (500+)", "openrice": "4.0", "happycow": "—", "michelin": "Michelin Recommended", "review_flag": "Trusted (verify operating status — has had ownership shifts)", "status": "Verify", "notes": "Reserves one wok for veg-only cooking. Confirm operational status before going.", "sources": "https://chillifagara.com; Michelin Guide", "lat": 22.279, "lng": 114.15576250000001}, {"name_en": "Paradise Dynasty (multiple)", "name_zh": "樂天皇朝", "category": "C. Mainstream w/ Strong Veg", "color": "#ff6b6b", "score": 66.7, "tier": "B", "subtype": "Shanghainese / dim sum", "district": "Multi-branch (IFC, Times Square, etc.)", "address": "IFC Mall, Times Square CWB, Tai Po, Tuen Mun (verify branch list)", "phone": "Branch-specific", "website": "paradisegp.com", "booking": "OpenTable, walk-in", "hours": "11:00–22:00", "price": "100–250", "veg_type": "Mixed (multiple veg xiao long bao + veg dishes)", "jain": "Limited", "dishes": "8-flavour XLB (luffa is veg ~$78/8pcs); veg dumplings; veg dan dan noodles; mapo tofu", "google": "4.2 (700+ aggregated)", "openrice": "4.0", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Singapore-origin chain. Reliable mid-range option with several genuinely veg XLB.", "sources": "https://www.paradisegp.com", "lat": 22.28515, "lng": 114.1602375}, {"name_en": "Woodlands Indian Vegetarian", "name_zh": "活蘭印度素食", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 72.6, "tier": "B", "subtype": "South Indian pure veg", "district": "Tsim Sha Tsui East", "address": "UG16-17 Wing On Plaza, 62 Mody Rd, TST East", "phone": "+852 2369 3718", "website": "woodlandshk.com", "booking": "Bistrochat, phone", "hours": "11:30–15:30; 18:00–22:30", "price": "60–120", "veg_type": "Pure vegetarian (Jain options)", "jain": "Yes", "dishes": "Masala dosa ($65-80); thali ($110-140); idli ($50); uttappam ($65)", "google": "4.4 (500+)", "openrice": "4.1", "happycow": "4.5", "michelin": "Long-running heritage entry", "review_flag": "Trusted", "status": "Open", "notes": "Since 1981. Jain & vegan options clearly marked. Lunchtime queues common.", "sources": "https://woodlandshk.com", "lat": 22.30078125, "lng": 114.1752625}, {"name_en": "Sangeetha Vegetarian", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 65.5, "tier": "B", "subtype": "South Indian (Udupi/Chettinad) pure veg", "district": "Tsim Sha Tsui East", "address": "Shop 1-5, UG/F Wing On Plaza, 62 Mody Rd, TST East", "phone": "+852 2732 1688", "website": "sangeetha.com.hk", "booking": "OpenRice", "hours": "Mon-Fri 10:30–15:00, 18:00–21:30; Sat-Sun 09:30–16:00, 18:00–21:30", "price": "50–100", "veg_type": "Pure vegetarian (Jain options)", "jain": "Yes", "dishes": "Masala dosa ($80); rava dosa ($80); idli ($50); uttappam ($65); thali ($110-130)", "google": "4.2 (400+)", "openrice": "4.3", "happycow": "4.0", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Global chain (45+ branches). Authentic Udupi/Chettinad. Jain & Buddhist-compliant options.", "sources": "https://sangeetha.com.hk", "lat": 22.298374999999997, "lng": 114.17354375000001}, {"name_en": "Saravanaa Bhavan", "name_zh": "சரவணபவன்", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 76.7, "tier": "A", "subtype": "South Indian pure veg (global chain)", "district": "Tsim Sha Tsui", "address": "3/F Golden Dragon Centre, 38-40 Cameron Rd, TST", "phone": "+852 2736 1127 / +852 5939 7650 (WhatsApp)", "website": "saravanaabhavan.com", "booking": "Phone, WhatsApp, OpenTable", "hours": "Mon-Fri 11:30–15:00, 18:00–22:30; Sat-Sun 11:00–22:30", "price": "70–130", "veg_type": "Pure vegetarian", "jain": "Yes", "dishes": "Masala dosa; biryani; vada; thali", "google": "4.4 (500+)", "openrice": "4.3", "happycow": "4.4", "michelin": "SCMP coverage", "review_flag": "Trusted", "status": "Open (reopened Sept 2025)", "notes": "World's largest pure-veg chain. Jain & vegan options.", "sources": "https://www.scmp.com/lifestyle/food-drink", "lat": 22.296968749999998, "lng": 114.17091875}, {"name_en": "Kailash Parbat", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 71.3, "tier": "B", "subtype": "North + South Indian pure veg + Jain", "district": "Tsim Sha Tsui", "address": "Shop 302, 3/F Multifield Plaza, 3-7A Prat Avenue, TST", "phone": "+852 3428 5545", "website": "kailashparbat.com.hk", "booking": "Phone, OpenRice", "hours": "12:00–22:00", "price": "100–180", "veg_type": "Pure vegetarian (vegan + Jain menus)", "jain": "Yes (separate menu)", "dishes": "Paneer tikka ($130-160); bhel puri ($90-110); chole bhatura ($110-130); pav bhaji", "google": "4.4 (300+)", "openrice": "4.2", "happycow": "4.5", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Strong on Jain dishes (no onion/garlic). Mumbai chaat specialties.", "sources": "https://kailashparbat.com.hk", "lat": 22.2945, "lng": 114.16904375}, {"name_en": "Branto Pure Veg Indian", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 0.0, "tier": "—", "subtype": "North/South Indian pure veg", "district": "Tsim Sha Tsui", "address": "1/F, 9 Lock Rd, TST (historic location)", "phone": "—", "website": "—", "booking": "—", "hours": "—", "price": "—", "veg_type": "Pure vegetarian (was)", "jain": "Yes (was)", "dishes": "(was) thali; dosa; gujarati & punjabi sets", "google": "—", "openrice": "—", "happycow": "Marked closed", "michelin": "—", "review_flag": "—", "status": "PERMANENTLY CLOSED (July 2025)", "notes": "Long-loved Mumbai-style Gujarati pure veg. Now closed — kept here for reference; verify any rumoured reopening.", "sources": "HappyCow CLOSED listing; Yelp", "lat": 22.301187499999997, "lng": 114.17391875}, {"name_en": "New Punjab Club", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 88.5, "tier": "S", "subtype": "Punjabi (mixed; strong veg)", "district": "Central", "address": "G/F, 34 Wyndham St, Central", "phone": "+852 2368 1223", "website": "newpunjabclub.com", "booking": "Email reservations@newpunjabclub.com, SevenRooms", "hours": "Tue-Sun lunch 12:00–14:30, dinner 18:00–22:30 (Fri-Sat to 23:00); Mon dinner only", "price": "300–400", "veg_type": "Mixed; strong veg tandoor section", "jain": "On request", "dishes": "Tandoori paneer; tandoori veg platter; dal makhani; aloo gobi", "google": "4.6 (700+)", "openrice": "4.4", "happycow": "—", "michelin": "★ Michelin (multi-year)", "review_flag": "Trusted", "status": "Open", "notes": "Black Sheep Restaurants. Meat-leaning but veg tandoor is strong.", "sources": "https://www.newpunjabclub.com", "lat": 22.28159375, "lng": 114.15960625000001}, {"name_en": "Chaiwala", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 59.1, "tier": "C", "subtype": "Modern North Indian (mixed)", "district": "Central", "address": "Basement, Yu Yuet Lai Bldg, 43-55 Wyndham St, Central", "phone": "+852 2362 8988", "website": "chaiwala.hk", "booking": "Phone, OpenTable", "hours": "Sun-Wed 17:00–02:00; Thu-Sat 17:00–03:00", "price": "150–250", "veg_type": "Mixed; strong veg menu (incl. lunch buffet)", "jain": "On request", "dishes": "Vegetarian curry options; lunch buffet ($198); paneer dishes", "google": "4.0 (400+)", "openrice": "3.9", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Pirata Group. Late-night-friendly. Veg menu solid but meat-leaning brand.", "sources": "https://www.chaiwala.hk", "lat": 22.28353125, "lng": 114.15923125}, {"name_en": "Bombay Dreams", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 74.8, "tier": "B", "subtype": "North Indian (mixed)", "district": "Central", "address": "1/F Winning Centre, 46 Wyndham St, Central", "phone": "+852 2811 9888", "website": "diningconcepts.com/restaurants/Bombay-Dreams", "booking": "Email reservations@bombaydreams.com.hk", "hours": "12:00–15:00 (lunch); 18:00–23:00", "price": "150–280", "veg_type": "Mixed; substantial veg section + lunch buffet", "jain": "On request", "dishes": "Paneer tikka; aloo gobi; mixed veg curries; weekend brunch buffet", "google": "4.3 (1,000+)", "openrice": "4.1", "happycow": "—", "michelin": "Bib Gourmand (multi-year)", "review_flag": "Trusted", "status": "Open", "notes": "Buffet brunch is best-value veg option. Long-running Central institution.", "sources": "https://www.diningconcepts.com", "lat": 22.28215625, "lng": 114.15735625}, {"name_en": "Gaylord Indian Restaurant", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 66.5, "tier": "B", "subtype": "North Indian (mixed)", "district": "Tsim Sha Tsui", "address": "5/F Prince Tower, 12A Peking Rd, TST", "phone": "+852 2376 1001", "website": "—", "booking": "Phone", "hours": "12:00–15:00; 18:00–22:45", "price": "150–250", "veg_type": "Mixed; veg curry section + tandoor", "jain": "On request", "dishes": "Paneer makhani; aloo gobi; vegetable tandoor; weekday lunch buffet", "google": "4.2 (700+)", "openrice": "3.9", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open (relocated from Ashley Rd in 2024)", "notes": "Long-running (since 1972). Halal. Lunch buffet popular.", "sources": "OpenRice; SCMP", "lat": 22.30109375, "lng": 114.17579375}, {"name_en": "Tandoor Indian Restaurant", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 62.8, "tier": "C", "subtype": "North Indian (mixed)", "district": "Central", "address": "1/F, 1 Lyndhurst Terrace, Central", "phone": "+852 2845 2262", "website": "tandoorhk.com", "booking": "Phone", "hours": "11:30–14:30; 18:00–22:45", "price": "150–250", "veg_type": "Mixed; strong veg tandoor + curry", "jain": "On request", "dishes": "Paneer tikka; vegetable tandoor; aloo gobi; lunch buffet", "google": "4.1 (500+)", "openrice": "4.0", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Established 1987. Halal. 80-seat dining room.", "sources": "http://tandoorhk.com", "lat": 22.28253125, "lng": 114.15766875}, {"name_en": "Aladin Mess", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 55.3, "tier": "C", "subtype": "Pakistani / North Indian (mixed)", "district": "Causeway Bay", "address": "2/F Fu Hing Bldg, 60 Russell St, CWB", "phone": "+852 2808 0250", "website": "—", "booking": "Phone, walk-in", "hours": "11:45–15:00; 18:00–22:45", "price": "100–160", "veg_type": "Mixed; veg samosas, palak paneer, aloo gobi", "jain": "Limited", "dishes": "Veg samosa; palak paneer; aloo gobi", "google": "3.9 (400+)", "openrice": "3.7", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Halal. Long-running CWB curry-house institution.", "sources": "Sassy HK; Tripadvisor", "lat": 22.2813875, "lng": 114.182625}, {"name_en": "Francis", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 80.6, "tier": "A", "subtype": "Israeli / Middle Eastern small plates", "district": "Wan Chai (Star St)", "address": "G/F, 4-6 St Francis St, Wan Chai", "phone": "+852 5216 8318 (WhatsApp 12-18:00)", "website": "francis.com.hk", "booking": "Walk-in only (no reservations)", "hours": "Tue-Sun 12:00–23:00; closed Mon", "price": "200–280", "veg_type": "Mixed; very strong veg meze section", "jain": "Limited", "dishes": "Hummus + tahini; charred cabbage; baba ganoush; Israeli couscous; shakshuka (vegetarian)", "google": "4.5 (700+)", "openrice": "4.3", "happycow": "4.2", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "No reservations — queue or off-peak. Many vegetarians cite this as their favourite mainstream HK restaurant.", "sources": "https://www.francis.com.hk; SCMP; Tatler Asia", "lat": 22.2793125, "lng": 114.1746125}, {"name_en": "Maison Libanaise", "name_zh": "黎巴嫩之家", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 79.0, "tier": "A", "subtype": "Lebanese / Middle Eastern", "district": "Soho", "address": "10 Shelley St, Soho, Central", "phone": "+852 2111 2284", "website": "maisonlibanaise.com.hk", "booking": "Phone, BistroChat", "hours": "12:00–24:00 (varies)", "price": "180–280", "veg_type": "Mixed; very strong vegan + veg meze", "jain": "Yes (de facto)", "dishes": "Hummus, baba ganoush, falafel, mujadara, fattoush, grilled veg, tabbouleh — most meze are vegan", "google": "4.4 (1,500+)", "openrice": "4.1", "happycow": "—", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Black Sheep Restaurants. Two-level (le Comptoir + le Salon). Mostly veg-friendly menu.", "sources": "https://www.maisonlibanaise.com.hk", "lat": 22.2858125, "lng": 114.15153124999999}, {"name_en": "Bedu", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 0.0, "tier": "—", "subtype": "Middle Eastern small plates (was)", "district": "Sheung Wan", "address": "40 Gough St, Sheung Wan", "phone": "—", "website": "—", "booking": "—", "hours": "—", "price": "—", "veg_type": "(was) mixed; strong veg", "jain": "—", "dishes": "(historical) hummus, charred cabbage, lamb-leaning mains", "google": "—", "openrice": "—", "happycow": "—", "michelin": "—", "review_flag": "—", "status": "PERMANENTLY CLOSED (June 2025)", "notes": "Closed but kept for reference — was widely cited as a strong veg-mainstream option.", "sources": "SCMP closure coverage; Tatler Asia review archive", "lat": 22.288124999999997, "lng": 114.14810625}, {"name_en": "Estiatorio Keia", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 72.9, "tier": "B", "subtype": "Modern Greek", "district": "Central", "address": "2/F H Queen's, 80 Queen's Rd Central", "phone": "+852 2677 7737", "website": "keia.com.hk", "booking": "Phone, OpenRice", "hours": "Mon-Thu 12:00–24:00; Fri-Sat 12:00–01:00", "price": "280–400", "veg_type": "Mixed; meze + veg-driven sides", "jain": "Limited", "dishes": "Grilled vegetables; fava bean puree; Greek salad; spanakopita (veg); tzatziki + bread", "google": "4.3 (300+)", "openrice": "4.2", "happycow": "—", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Seafood-focused but with strong vegetable plates. Floor-to-ceiling H Queen's views.", "sources": "Time Out HK; OpenRice", "lat": 22.2813125, "lng": 114.1591375}, {"name_en": "The Optimist", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 77.9, "tier": "A", "subtype": "Northern Spanish (asador)", "district": "Wan Chai", "address": "G/F-2/F, 239 Hennessy Rd, Wan Chai", "phone": "+852 2433 3324", "website": "theoptimist.hk", "booking": "OpenTable, phone", "hours": "Mon-Fri 11:30–14:45, 18:00–22:30; Sat-Sun 11:30–15:30, 18:00–22:30", "price": "200–350", "veg_type": "Mixed; strong veg tapas", "jain": "Limited", "dishes": "Padron peppers; grilled asparagus; pan con tomate; veg tapas brunch (Sundays)", "google": "4.4 (700+)", "openrice": "4.1", "happycow": "—", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open (cashless from Feb 2024)", "notes": "Pirata Group. Sunday tapas brunch is veg-rich.", "sources": "https://theoptimist.hk; Tatler Asia", "lat": 22.2814375, "lng": 114.17298749999999}, {"name_en": "Limewood", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 78.9, "tier": "A", "subtype": "Mediterranean / SE Asian / Caribbean", "district": "Repulse Bay", "address": "Shop 103/104 The Pulse, 28 Beach Rd, Repulse Bay", "phone": "+852 2866 8668", "website": "limewood.hk", "booking": "OpenTable, phone", "hours": "Weekday 11:30–22:00; Weekend 11:00–22:00", "price": "250–400", "veg_type": "Mixed; strong vegan + veg menu", "jain": "Limited", "dishes": "Vegan ceviche; grilled vegetables; chimichurri salads; plant-based BBQ sides", "google": "4.4 (1,500+)", "openrice": "4.0", "happycow": "—", "michelin": "Tatler-listed", "review_flag": "Trusted", "status": "Open", "notes": "Beachfront. Strong vegan section vs typical Med restaurants.", "sources": "https://limewood.hk; Tatler Asia", "lat": 22.2404125, "lng": 114.19201875}, {"name_en": "Chutney Tandoor House", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 83.7, "tier": "A", "subtype": "Modern North Indian (mixed)", "district": "Central", "address": "4/F Carfield Commercial Bldg, 75-77 Wyndham St, Central", "phone": "—", "website": "chutneytandoorhouse.shop", "booking": "SevenRooms", "hours": "12:00–15:00; 18:30–23:00", "price": "250–400", "veg_type": "Mixed (dedicated veg + Jain options)", "jain": "Yes", "dishes": "Aloo tikki chaat ($120); tandoori cauliflower ($180); kamala kofta curry ($230); palak paneer", "google": "4.6 (400+)", "openrice": "4.3", "happycow": "—", "michelin": "Time Out HK feature", "review_flag": "Trusted", "status": "Open", "notes": "Dedicates one tandoor to vegetarian cooking. Impossible Foods collaboration on some items.", "sources": "https://chutneytandoorhouse.shop; Time Out HK", "lat": 22.28428125, "lng": 114.15682500000001}, {"name_en": "Khyber Pass Mess Club", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 69.2, "tier": "B", "subtype": "Indian (Chungking Mansions classic)", "district": "Tsim Sha Tsui", "address": "Block E, 7/F Chungking Mansions, 36-44 Nathan Rd, TST", "phone": "+852 2368 2387", "website": "—", "booking": "Phone, walk-in", "hours": "12:00–24:00", "price": "150–300", "veg_type": "Mixed (significant veg section)", "jain": "On request", "dishes": "Saag paneer; paneer paratha; veg samosa; veg biryani", "google": "4.3 (400+)", "openrice": "4.0", "happycow": "—", "michelin": "—", "review_flag": "Trusted", "status": "Open", "notes": "Established 1991 — a Chungking Mansions institution. Classic North Indian with strong veg dishes.", "sources": "OpenRice; HappyCow", "lat": 22.296656249999998, "lng": 114.17266875}, {"name_en": "Curry Leaf Indian Cuisine", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 48.7, "tier": "D", "subtype": "North + South Indian (mixed)", "district": "Jordan / Yau Ma Tei", "address": "Temple St area, Jordan (verify exact address)", "phone": "—", "website": "—", "booking": "Phone, walk-in", "hours": "Verify", "price": "120–250", "veg_type": "Mixed", "jain": "On request", "dishes": "Veg curries; samosa chaat; pani puri", "google": "4.1 (150+)", "openrice": "—", "happycow": "—", "michelin": "—", "review_flag": "Verify", "status": "Verify", "notes": "Listed in HK veg-friendly resources but limited online presence. Phone before going.", "sources": "HappyCow", "lat": 22.31253125, "lng": 114.16966875}, {"name_en": "Soil to Soul", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 0.0, "tier": "—", "subtype": "Korean Buddhist temple food (was)", "district": "Tsim Sha Tsui", "address": "K11 Musea, 17 Kowloon Rd, TST", "phone": "—", "website": "soiltosoulhk.com", "booking": "—", "hours": "—", "price": "—", "veg_type": "Vegan (was)", "jain": "—", "dishes": "(was) Sunim Temple Menu (~$780/person, 24 vegan dishes); fermented sides", "google": "—", "openrice": "—", "happycow": "—", "michelin": "—", "review_flag": "—", "status": "PERMANENTLY CLOSED (~2024)", "notes": "Famous Korean temple-food concept. Closed — included for reference so you don't search for it.", "sources": "Instagram archive; HappyCow", "lat": 22.29675, "lng": 114.16951250000001}, {"name_en": "Greenwoods Raw Cafe", "name_zh": "—", "category": "D. Indian / ME / Med", "color": "#a855f7", "score": 0.0, "tier": "—", "subtype": "Raw vegan (was)", "district": "Tsim Sha Tsui", "address": "13/F, 2 Carnarvon Rd, TST", "phone": "—", "website": "—", "booking": "—", "hours": "—", "price": "—", "veg_type": "Raw vegan (was)", "jain": "—", "dishes": "(was) Green smoothies; organic salads; vegan 'salmon' tartare", "google": "—", "openrice": "—", "happycow": "—", "michelin": "—", "review_flag": "—", "status": "CLOSED", "notes": "HK's first raw-only cafe. Closed.", "sources": "HappyCow CLOSED listing", "lat": 22.2993125, "lng": 114.17432500000001}];
+const CAT_COLORS = {
+  "A. Chinese / Buddhist 齋": "#ffe66d",
+  "B. Modern Plant-Based / Fine": "#4ecdc4",
+  "C. Mainstream w/ Strong Veg": "#ff6b6b",
+  "D. Indian / ME / Med": "#a855f7",
+};
+
+// ─── Map (light tile, dark UI) ────────────────────────────
+const isMobile = () => window.matchMedia("(max-width: 800px)").matches;
+const map = L.map("map", { zoomControl: true }).setView([22.305, 114.170], isMobile() ? 10 : 11);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  attribution: '&copy; OpenStreetMap, &copy; CARTO', maxZoom: 19,
+  subdomains: "abcd",
+}).addTo(map);
+
+const legend = L.control({ position: "bottomright" });
+legend.onAdd = function () {
+  const div = L.DomUtil.create("div", "leaflet-control");
+  div.style.padding = "9px 11px"; div.style.borderRadius = "10px";
+  div.style.boxShadow = "var(--shadow-md)";
+  div.classList.add("legend");
+  div.innerHTML = `
+    <strong style="font-size:11px;">Categories</strong>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["A. Chinese / Buddhist 齋"]}"></span>Chinese 齋</div>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["B. Modern Plant-Based / Fine"]}"></span>Modern plant-based</div>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["C. Mainstream w/ Strong Veg"]}"></span>Mainstream w/ veg</div>
+    <div class="row"><span class="swatch" style="background:${CAT_COLORS["D. Indian / ME / Med"]}"></span>Indian / ME / Med</div>
+    <small style="display:block;margin-top:4px;max-width:140px;">Marker size = score. Positions approximate.</small>`;
+  return div;
+};
+legend.addTo(map);
+
+function makeIcon(r) {
+  const size = r.score >= 85 ? 24 : r.score >= 75 ? 21 : r.score >= 65 ? 18 : r.score >= 55 ? 16 : 14;
+  const opacity = r.score === 0 ? 0.4 : 1;
+  return L.divIcon({
+    className: "veg-marker",
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${r.color};border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.5);opacity:${opacity};"></div>`,
+    iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -size/2],
+  });
+}
+
+// ─── Helpers for clickable links ─────────────────────────
+function escapeHtml(s) { return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function websiteHref(s) {
+  if (!s || s === "—") return "";
+  const t = String(s).trim();
+  const igMatch = t.match(/^@([A-Za-z0-9_.]+)/);
+  if (igMatch) return `https://www.instagram.com/${igMatch[1]}/`;
+  if (/^https?:\/\//i.test(t)) return encodeURI(t);
+  if (/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/.*)?$/.test(t)) return `https://${t}`;
+  if (/^facebook\.com\/|^instagram\.com\//.test(t)) return `https://${t}`;
+  return "";
+}
+function websiteLink(raw) {
+  if (!raw || raw === "—") return "";
+  const href = websiteHref(raw);
+  const display = String(raw).replace(/^https?:\/\/(www\.)?/i, "").replace(/^@/, "@");
+  if (href) return `<a href="${href}" target="_blank" rel="noopener noreferrer">${escapeHtml(display)}</a>`;
+  return escapeHtml(raw);
+}
+function phoneTel(s) {
+  const m = String(s || "").match(/(\+\d[\d\s-]{6,}\d)/);
+  return m ? m[1].replace(/[\s-]/g, "") : "";
+}
+function phoneLink(raw) {
+  if (!raw || raw === "—") return "";
+  const tel = phoneTel(raw);
+  if (!tel) return escapeHtml(raw);
+  const m = String(raw).match(/(\+\d[\d\s-]{6,}\d)/);
+  const visible = m ? m[1] : raw;
+  const after = m ? String(raw).replace(m[1], "") : "";
+  return `<a href="tel:${tel}">${escapeHtml(visible)}</a>${escapeHtml(after)}`;
+}
+function gmapsUrl(r) {
+  const parts = [r.name_en];
+  if (r.address && r.address !== "—") parts.push(r.address);
+  else if (r.district) parts.push(r.district);
+  parts.push("Hong Kong");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.filter(Boolean).join(", "))}`;
+}
+
+function popupHtml(r) {
+  const flagClass = (r.review_flag || "").toLowerCase().includes("mixed") || (r.review_flag || "").toLowerCase().includes("verify") ? "flag warn" : "flag";
+  const showFlag = r.review_flag && r.review_flag.toLowerCase() !== "trusted";
+  const statusWarn = (r.status || "").toUpperCase().includes("CLOSED") || (r.status || "").toUpperCase().includes("UNCERTAIN");
+  const closed = (r.status || "").toUpperCase().includes("CLOSED");
+  const ratings = [
+    r.google && r.google !== "—" && `Google ${r.google}`,
+    r.openrice && r.openrice !== "—" && `OpenRice ${r.openrice}`,
+    r.happycow && r.happycow !== "—" && `HappyCow ${r.happycow}`,
+  ].filter(Boolean);
+  const tierClass = r.tier === "—" ? "dash" : r.tier;
+  const tel = phoneTel(r.phone);
+  const webHref = websiteHref(r.website);
+
+  return `<div class="popup">
+    <div class="head">
+      <div class="score-badge ${tierClass}">
+        <span class="score">${r.score === 0 ? "—" : r.score}</span>
+        <span class="tier">${r.tier === "—" ? "closed" : "tier " + r.tier}</span>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <h3>${escapeHtml(r.name_en)}</h3>
+        ${r.name_zh && r.name_zh !== "—" ? `<div class="zh">${escapeHtml(r.name_zh)}</div>` : ""}
+        <span class="cat-tag" style="background:${r.color}">${escapeHtml(r.category)}</span>
+      </div>
+    </div>
+    <dl>
+      <dt>Type</dt><dd>${escapeHtml(r.subtype)}</dd>
+      <dt>District</dt><dd>${escapeHtml(r.district)}</dd>
+      <dt>Address</dt><dd>${escapeHtml(r.address)}</dd>
+      ${r.phone && r.phone !== "—" ? `<dt>Phone</dt><dd>${phoneLink(r.phone)}</dd>` : ""}
+      ${r.website && r.website !== "—" ? `<dt>Web/IG</dt><dd>${websiteLink(r.website)}</dd>` : ""}
+      ${r.hours ? `<dt>Hours</dt><dd>${escapeHtml(r.hours)}</dd>` : ""}
+      <dt>Price</dt><dd>HKD ${escapeHtml(r.price)}/person</dd>
+      <dt>Veg type</dt><dd>${escapeHtml(r.veg_type)}${r.jain && r.jain !== "No" && r.jain !== "—" ? " · Jain: " + escapeHtml(r.jain) : ""}</dd>
+      <dt>Booking</dt><dd>${escapeHtml(r.booking)}</dd>
+    </dl>
+    ${r.dishes ? `<div class="dishes"><div class="label">Signature / sample dishes</div>${escapeHtml(r.dishes)}</div>` : ""}
+    ${ratings.length || (r.michelin && r.michelin !== "—") ? `<div class="ratings">
+      ${ratings.map(x => `<span class="rating">${escapeHtml(x)}</span>`).join("")}
+      ${r.michelin && r.michelin !== "—" ? `<span class="rating michelin">${escapeHtml(r.michelin)}</span>` : ""}
+    </div>` : ""}
+    <div class="actions">
+      ${closed ? "" : `<a class="action-btn primary" href="${gmapsUrl(r)}" target="_blank" rel="noopener noreferrer"><span class="icon">📍</span>Google Maps</a>`}
+      ${tel ? `<a class="action-btn" href="tel:${tel}"><span class="icon">📞</span>Call</a>` : ""}
+      ${webHref ? `<a class="action-btn" href="${webHref}" target="_blank" rel="noopener noreferrer"><span class="icon">🔗</span>Website</a>` : ""}
+    </div>
+    ${statusWarn ? `<div class="flag warn"><strong>Status:</strong> ${escapeHtml(r.status)}</div>` : ""}
+    ${showFlag && !statusWarn ? `<div class="${flagClass}"><strong>Review quality:</strong> ${escapeHtml(r.review_flag)}</div>` : ""}
+    ${r.notes ? `<div class="notes-block">${escapeHtml(r.notes)}</div>` : ""}
+  </div>`;
+}
+
+const markers = DATA.map(r => {
+  const m = L.marker([r.lat, r.lng], { icon: makeIcon(r) });
+  m.bindPopup(popupHtml(r), { maxWidth: 380 });
+  m._record = r;
+  return m;
+});
+const layer = L.layerGroup(markers).addTo(map);
+
+// ─── State / filters ───────────────────────────────────────
+const state = {
+  cats: new Set(["A. Chinese / Buddhist 齋", "B. Modern Plant-Based / Fine", "C. Mainstream w/ Strong Veg", "D. Indian / ME / Med"]),
+  tiers: new Set(["S","A","B","C","D"]),
+  q: "", veg: "", criticOnly: false, trustedOnly: false, hideClosed: true,
+  minScore: 0,
+};
+
+function passes(r) {
+  if (!state.cats.has(r.category)) return false;
+  if (state.hideClosed && (r.score === 0 || (r.status||"").toUpperCase().includes("CLOSED") || (r.status||"").toUpperCase().includes("UNCERTAIN"))) return false;
+  if (state.tiers.size < 5 && !state.tiers.has(r.tier)) return false;
+  if (r.score < state.minScore) return false;
+  if (state.veg === "vegan" && !(r.veg_type||"").toLowerCase().includes("vegan")) return false;
+  if (state.veg === "jain") {
+    const j = (r.jain||"").toLowerCase();
+    if (!(j === "yes" || j.includes("yes") || j.includes("on request"))) return false;
+  }
+  if (state.criticOnly) {
+    const m = (r.michelin||"").toLowerCase();
+    if (!m || m === "—") return false;
+  }
+  if (state.trustedOnly && (r.review_flag||"").toLowerCase() !== "trusted") return false;
+  if (state.q) {
+    const q = state.q.toLowerCase();
+    const hay = [r.name_en, r.name_zh, r.subtype, r.district, r.address, r.dishes, r.notes, r.veg_type, r.michelin].join(" ").toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function applyFilters() {
+  markers.forEach((m, i) => {
+    const r = DATA[i];
+    if (passes(r)) { if (!map.hasLayer(m)) layer.addLayer(m); }
+    else { if (map.hasLayer(m)) layer.removeLayer(m); }
+  });
+  renderList();
+}
+
+function shortMichelin(s) {
+  if (s.includes("★★★")) return "★★★";
+  if (s.includes("★★")) return "★★";
+  if (s.includes("★")) return "★";
+  if (s.toLowerCase().includes("bib")) return "Bib";
+  if (s.toLowerCase().includes("tatler")) return "Tatler";
+  return s.slice(0, 18);
+}
+
+function renderList() {
+  const list = document.getElementById("list");
+  const stats = document.getElementById("stats-text");
+  const mCount = document.getElementById("m-count");
+  const filtered = DATA.map((r, i) => ({ r, i })).filter(x => passes(x.r));
+  filtered.sort((a, b) => {
+    if (a.r.score !== b.r.score) return b.r.score - a.r.score;
+    return a.r.name_en.localeCompare(b.r.name_en);
+  });
+  stats.textContent = `${filtered.length} of ${DATA.length} shown`;
+  if (mCount) mCount.textContent = `· ${filtered.length} shown`;
+  list.innerHTML = filtered.map(({ r, i }) => {
+    const tierClass = r.tier === "—" ? "dash" : r.tier;
+    const catShort = r.category.split(".")[0];
+    const closed = (r.status||"").toUpperCase().includes("CLOSED");
+    return `<div class="item" data-i="${i}" ${closed ? 'style="opacity:0.55"' : ""}>
+      <div class="score-badge ${tierClass}">${r.score === 0 ? "—" : Math.round(r.score)}</div>
+      <div>
+        <div class="row1">
+          <span class="name">${escapeHtml(r.name_en)}</span>
+          ${r.name_zh && r.name_zh !== "—" ? `<span class="zh">${escapeHtml(r.name_zh)}</span>` : ""}
+        </div>
+        <div class="meta">
+          <span class="cat-pill" style="background:${r.color}">${catShort}</span>
+          <span class="pill">${escapeHtml(r.district)}</span>
+          ${r.michelin && r.michelin !== "—" ? `<span class="pill michelin">${escapeHtml(shortMichelin(r.michelin))}</span>` : ""}
+          ${closed ? `<span class="pill closed">closed</span>` : ""}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ─── UI bindings ───────────────────────────────────────────
+document.querySelectorAll("#cat-filters .chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    const c = chip.dataset.cat;
+    if (state.cats.has(c)) { state.cats.delete(c); chip.classList.remove("active"); }
+    else { state.cats.add(c); chip.classList.add("active"); }
+    applyFilters();
+  });
+});
+document.querySelectorAll(".tier-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    const t = chip.dataset.tier;
+    if (state.tiers.has(t)) { state.tiers.delete(t); chip.classList.remove("active"); }
+    else { state.tiers.add(t); chip.classList.add("active"); }
+    applyFilters();
+  });
+});
+const searchEl = document.getElementById("search");
+searchEl.addEventListener("input", e => { state.q = e.target.value.trim(); applyFilters(); });
+document.getElementById("veg-filter").addEventListener("change", e => { state.veg = e.target.value; applyFilters(); });
+document.getElementById("critic-only").addEventListener("change", e => { state.criticOnly = e.target.checked; applyFilters(); });
+document.getElementById("trusted-only").addEventListener("change", e => { state.trustedOnly = e.target.checked; applyFilters(); });
+document.getElementById("hide-closed").addEventListener("change", e => { state.hideClosed = e.target.checked; applyFilters(); });
+document.getElementById("score-slider").addEventListener("input", e => {
+  state.minScore = +e.target.value;
+  document.getElementById("score-val").textContent = e.target.value;
+  applyFilters();
+});
+document.getElementById("reset-btn").addEventListener("click", () => {
+  state.cats = new Set(["A. Chinese / Buddhist 齋", "B. Modern Plant-Based / Fine", "C. Mainstream w/ Strong Veg", "D. Indian / ME / Med"]);
+  state.tiers = new Set(["S","A","B","C","D"]);
+  state.q = ""; state.veg = ""; state.criticOnly = false; state.trustedOnly = false; state.hideClosed = true; state.minScore = 0;
+  document.querySelectorAll("#cat-filters .chip").forEach(c => c.classList.add("active"));
+  document.querySelectorAll(".tier-chip").forEach(c => c.classList.add("active"));
+  searchEl.value = "";
+  document.getElementById("veg-filter").value = "";
+  document.getElementById("critic-only").checked = false;
+  document.getElementById("trusted-only").checked = false;
+  document.getElementById("hide-closed").checked = true;
+  document.getElementById("score-slider").value = 0;
+  document.getElementById("score-val").textContent = "0";
+  applyFilters();
+});
+
+document.getElementById("list").addEventListener("click", e => {
+  const item = e.target.closest(".item");
+  if (!item) return;
+  const i = +item.dataset.i;
+  const m = markers[i];
+  document.querySelectorAll(".item.selected").forEach(x => x.classList.remove("selected"));
+  item.classList.add("selected");
+  if (!map.hasLayer(m)) layer.addLayer(m);
+  if (isMobile()) collapseSheet();
+  map.setView(m.getLatLng(), 15);
+  m.openPopup();
+});
+
+// ─── Welcome / About modal ─────────────────────────────────
+const modalBg = document.getElementById("modal-bg");
+function openModal() { modalBg.classList.add("open"); document.body.style.overflow = "hidden"; }
+function closeModal() { modalBg.classList.remove("open"); document.body.style.overflow = ""; try { localStorage.setItem("hkv-seen-welcome-v3", "1"); } catch (_) {} }
+document.getElementById("modal-close").addEventListener("click", closeModal);
+modalBg.addEventListener("click", e => { if (e.target === modalBg) closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && modalBg.classList.contains("open")) closeModal(); });
+document.getElementById("info-btn").addEventListener("click", openModal);
+document.getElementById("mobile-fab").addEventListener("click", openModal);
+try { if (!localStorage.getItem("hkv-seen-welcome-v3")) openModal(); } catch (_) { openModal(); }
+
+// ─── Mobile bottom-sheet ───────────────────────────────────
+const sidebar = document.getElementById("sidebar");
+const header = document.getElementById("sidebar-header");
+function expandSheet() { sidebar.classList.add("expanded"); }
+function collapseSheet() { sidebar.classList.remove("expanded"); }
+function toggleSheet() { sidebar.classList.toggle("expanded"); }
+header.addEventListener("click", e => {
+  if (isMobile()) {
+    if (e.target.closest(".icon-btn")) return;
+    toggleSheet();
+  }
+});
+
+let dragStartY = null;
+header.addEventListener("touchstart", e => { dragStartY = e.touches[0].clientY; }, { passive: true });
+header.addEventListener("touchmove", e => {
+  if (dragStartY == null) return;
+  const dy = e.touches[0].clientY - dragStartY;
+  if (Math.abs(dy) > 28) {
+    if (dy < 0) expandSheet(); else collapseSheet();
+    dragStartY = null;
+  }
+}, { passive: true });
+
+searchEl.addEventListener("focus", () => { if (isMobile()) expandSheet(); });
+
+document.addEventListener("keydown", e => {
+  if (e.key === "/" && document.activeElement.tagName !== "INPUT" && !modalBg.classList.contains("open")) {
+    e.preventDefault();
+    searchEl.focus();
+  }
+});
+
+applyFilters();
+</script>
+</body>
+</html>
