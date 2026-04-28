@@ -156,16 +156,67 @@
     "label": "Mira Place 1, Nathan Rd, TST"
   },
   "Amitabha Buddha Vegetarian||Hung Hom": {
-    "lat": 22.3055,
-    "lng": 114.183,
-    "source": "manual",
-    "label": "Station Lane, Hung Hom"
+    "closed": true
   },
   "Light Vegetarian||Jordan": {
     "lat": 22.3046,
     "lng": 114.1715,
     "source": "manual",
     "label": "Jordan"
+  },
+  "Fat Chee Vegetarian||Yuen Long": {
+    "lat": 22.4438,
+    "lng": 114.022,
+    "source": "manual",
+    "label": "Fuk Hong St, Yuen Long"
+  },
+  "Po Lin Vegetarian (Yuen Long)||Yuen Long": {
+    "lat": 22.4445,
+    "lng": 114.025,
+    "source": "manual",
+    "label": "Yuccie Square, Yuen Long"
+  },
+  "One Vegan Shop||Yuen Long": {
+    "lat": 22.4438,
+    "lng": 114.0223,
+    "source": "manual",
+    "label": "Yuen Sun St, Yuen Long"
+  },
+  "Lotus Vegetarian (Tai Po)||Tai Po": {
+    "lat": 22.4515,
+    "lng": 114.1705,
+    "source": "manual",
+    "label": "Kwong Fuk Rd, Tai Po"
+  },
+  "Tin Tin Vegetarian||Sha Tin": {
+    "lat": 22.3805,
+    "lng": 114.1898,
+    "source": "manual",
+    "label": "Sha Tin Plaza"
+  },
+  "Sam Bo Vegetarian||Sha Tin": {
+    "lat": 22.3805,
+    "lng": 114.1898,
+    "source": "manual",
+    "label": "Sha Tin Plaza"
+  },
+  "Mui Fat Buddhist Monastery Canteen||Tuen Mun (Lam Tei)": {
+    "lat": 22.429,
+    "lng": 113.989,
+    "source": "manual",
+    "label": "Castle Peak Rd, Lam Tei, Tuen Mun"
+  },
+  "Western Monastery Vegetarian Hall||Tsuen Wan": {
+    "lat": 22.3711,
+    "lng": 114.1144,
+    "source": "manual",
+    "label": "Lo Wai Rd, Tsuen Wan"
+  },
+  "Home Veggie||Sha Tin (Yu Chui)": {
+    "lat": 22.369,
+    "lng": 114.203,
+    "source": "manual",
+    "label": "Yu Chui Market, Sha Tin"
   },
   "Treehouse||Multi-branch": {
     "lat": 22.2828,
@@ -180,10 +231,7 @@
     "label": "Sun St, Wan Chai"
   },
   "MANA! Fast Slow Food||Soho / Wan Chai": {
-    "lat": 22.2829,
-    "lng": 114.1531,
-    "source": "manual",
-    "label": "Staunton St, Soho"
+    "closed": true
   },
   "Kind Kitchen by Green Common||Central": {
     "lat": 22.2845,
@@ -195,7 +243,7 @@
     "lat": 22.2849,
     "lng": 114.1583,
     "source": "manual",
-    "label": "IFC Mall, Central (representative)"
+    "label": "IFC Mall, Central (representative branch)"
   },
   "Beet||Central": {
     "lat": 22.2842,
@@ -267,16 +315,10 @@
     "label": "Tai Mei Tuk, Tai Po"
   },
   "Mayse Pizzeria||Jordan": {
-    "lat": 22.3046,
-    "lng": 114.1715,
-    "source": "manual",
-    "label": "Woosung St, Jordan"
+    "closed": true
   },
   "VW Vegan Cafe||Tai Po": {
-    "lat": 22.4515,
-    "lng": 114.1645,
-    "source": "manual",
-    "label": "Plover Cove Garden Arcade, Tai Po"
+    "closed": true
   },
   "The Cakery (Lee Garden)||Causeway Bay": {
     "lat": 22.2802,
@@ -302,6 +344,42 @@
     "source": "manual",
     "label": "15 High St, Sai Ying Pun"
   },
+  "Peridot||Central (The Henderson)": {
+    "lat": 22.2829,
+    "lng": 114.164,
+    "source": "manual",
+    "label": "The Henderson, 2 Murray Rd, Central"
+  },
+  "Happy Samurai||Central": {
+    "lat": 22.2826,
+    "lng": 114.1543,
+    "source": "manual",
+    "label": "51 Wellington St, Central"
+  },
+  "Le FroMage by Ma||Tsim Sha Tsui (K11 Musea)": {
+    "lat": 22.2935,
+    "lng": 114.1731,
+    "source": "manual",
+    "label": "K11 Musea, Victoria Dockside, TST"
+  },
+  "Dotom||Central": {
+    "lat": 22.2826,
+    "lng": 114.1542,
+    "source": "manual",
+    "label": "Welley Bldg, 97 Wellington St, Central"
+  },
+  "Maya Bakery & Bar||Quarry Bay (Taikoo Place) + Central (IFC)": {
+    "lat": 22.288,
+    "lng": 114.215,
+    "source": "manual",
+    "label": "Taikoo Place (representative branch)"
+  },
+  "Bobsang||Tsing Yi (Maritime Square)": {
+    "lat": 22.359,
+    "lng": 114.108,
+    "source": "manual",
+    "label": "Maritime Square, Tsing Yi"
+  },
   "Amber||Central": {
     "lat": 22.2814,
     "lng": 114.1581,
@@ -321,10 +399,10 @@
     "label": "H Code, Pottinger St, Central"
   },
   "Roganic Hong Kong||Causeway Bay": {
-    "lat": 22.2802,
-    "lng": 114.186,
+    "lat": 22.279,
+    "lng": 114.1845,
     "source": "manual",
-    "label": "Sino Plaza, CWB"
+    "label": "Lee Garden One, Hysan Ave, Causeway Bay (relocated 2025-26)"
   },
   "Arcane||Central": {
     "lat": 22.2826,
@@ -482,6 +560,24 @@
     "source": "manual",
     "label": "IFC Mall, Central"
   },
+  "Terrace Boulud||Central": {
+    "lat": 22.2814,
+    "lng": 114.1582,
+    "source": "manual",
+    "label": "Landmark Prince's, Chater Rd, Central"
+  },
+  "Salisterra||Admiralty (Upper House)": {
+    "lat": 22.2774,
+    "lng": 114.1662,
+    "source": "manual",
+    "label": "Upper House, Pacific Place, Admiralty"
+  },
+  "Bistrot du Vin||Sai Ying Pun": {
+    "lat": 22.2877,
+    "lng": 114.1437,
+    "source": "manual",
+    "label": "Connaught Rd West, Sai Ying Pun"
+  },
   "Woodlands Indian Vegetarian||Tsim Sha Tsui East": {
     "lat": 22.2974,
     "lng": 114.1815,
@@ -595,6 +691,30 @@
     "lng": 114.1715,
     "source": "manual",
     "label": "Temple St area, Jordan"
+  },
+  "Omnia||Central (Soho)": {
+    "lat": 22.2823,
+    "lng": 114.1531,
+    "source": "manual",
+    "label": "33 Staunton St, Soho, Central"
+  },
+  "Bushra||Tsim Sha Tsui East": {
+    "lat": 22.2974,
+    "lng": 114.1815,
+    "source": "manual",
+    "label": "Tsim Sha Tsui Centre, Mody Rd, TST East"
+  },
+  "Sumac||Central": {
+    "lat": 22.2818,
+    "lng": 114.1567,
+    "source": "manual",
+    "label": "8 Glenealy, Central"
+  },
+  "Mara||Sheung Wan": {
+    "lat": 22.2872,
+    "lng": 114.1485,
+    "source": "manual",
+    "label": "77 Wing Lok St, Sheung Wan"
   },
   "Soil to Soul||Tsim Sha Tsui": {
     "closed": true
