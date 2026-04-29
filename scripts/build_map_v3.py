@@ -234,6 +234,34 @@ HTML = r"""<!DOCTYPE html>
 
   select { padding: 6px 10px; border: 1px solid var(--card-border-strong); border-radius: 10px; font-size: 12.5px; background: var(--card); color: var(--text); min-height: 32px; }
   select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  /* Prominent diet toggles (Vegan / Jain) */
+  .big-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 9px 14px; border-radius: 12px;
+    border: 1.5px solid var(--card-border-strong);
+    background: var(--card); color: var(--text-dim);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; user-select: none;
+    transition: all 0.2s var(--spring);
+    flex: 1; min-height: 38px;
+  }
+  .big-toggle:hover { color: var(--text); border-color: var(--accent); }
+  .big-toggle input { display: none; }
+  .big-toggle:has(input:checked) {
+    background: rgba(42, 157, 143, 0.10);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 2px 8px rgba(42, 157, 143, 0.10);
+  }
+  .big-toggle.vegan-toggle:has(input:checked) {
+    background: rgba(42, 157, 143, 0.14);
+  }
+  .big-toggle-text { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* Vegan badge on list items + popups */
+  .item .pill.vegan { background: rgba(42, 157, 143, 0.14); color: #1a6e63; font-weight: 600; }
+  .popup .rating.vegan { background: rgba(42, 157, 143, 0.14); color: #1a6e63; font-weight: 600; }
   label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; user-select: none; padding: 4px 0; color: var(--text-dim); }
   label.toggle input { width: 15px; height: 15px; accent-color: var(--catB); }
   label.toggle:hover { color: var(--text); }
@@ -601,17 +629,24 @@ HTML = r"""<!DOCTYPE html>
         <span class="chip D active" data-cat="D. Indian / ME / Med"><span class="dot"></span><span data-i18n="catD">Indian/ME/Med</span></span>
       </div>
 
+      <div class="group-label" data-i18n="dietLabel">Diet</div>
+      <div class="filter-row">
+        <label class="big-toggle vegan-toggle">
+          <input type="checkbox" id="vegan-only" />
+          <span class="big-toggle-text">🌱 <span data-i18n="veganOnly">Vegan only</span></span>
+        </label>
+        <label class="big-toggle jain-toggle">
+          <input type="checkbox" id="jain-only" />
+          <span class="big-toggle-text"><span data-i18n="jainOnly">Jain</span></span>
+        </label>
+      </div>
+
       <div class="group-label" data-i18n="moreFilters">More filters</div>
       <div class="filter-row" style="gap:10px;">
-        <select id="veg-filter">
-          <option value="" data-i18n="anyVegType">Any veg type</option>
-          <option value="vegan" data-i18n="veganOnly">Vegan only</option>
-          <option value="jain" data-i18n="jainOptions">Jain options</option>
-        </select>
         <label class="toggle"><input type="checkbox" id="critic-only"> <span data-i18n="criticOnly">Critic-recognised</span></label>
+        <label class="toggle"><input type="checkbox" id="trusted-only"> <span data-i18n="trustedReviews">Trusted reviews</span></label>
       </div>
       <div class="filter-row" style="gap:10px;">
-        <label class="toggle"><input type="checkbox" id="trusted-only"> <span data-i18n="trustedReviews">Trusted reviews</span></label>
         <label class="toggle"><input type="checkbox" id="hide-closed" checked> <span data-i18n="hideClosed">Hide closed</span></label>
       </div>
       </div><!-- /filter-panel -->
@@ -672,13 +707,14 @@ const STRINGS = {
     anyVegType: "Any veg type", veganOnly: "Vegan only", jainOptions: "Jain options",
     criticOnly: "Critic-recognised", trustedReviews: "Trusted reviews", hideClosed: "Hide closed",
     resetBtn: "reset",
-    catA: "Chinese 齋", catB: "Plant-based", catC: "Mainstream", catD: "Indian/ME/Med",
+    catA: "Chinese 齋", catB: "Plant-based", catC: "Mainstream + veg menu", catD: "Indian/ME/Med",
     statsShown: (s, t) => `${s} of ${t} shown`,
     countShown: (n) => `· ${n} shown`,
     nothingMatches: "Nothing matches. Try resetting.",
+    dietLabel: "Diet", jainOnly: "Jain", veganBadge: "Vegan",
     popup: { type: "Type", district: "District", address: "Address", phone: "Phone", web: "Web/IG", hours: "Hours", price: "Price", vegType: "Veg type", booking: "Booking", jainPrefix: " · Jain: ", dishesLabel: "Signature / sample dishes", maps: "Google Maps", call: "Call", website: "Website", status: "Status:", reviewQ: "Review quality:", priceFmt: (p) => `HKD ${p}/person`, tier: (t) => t === "—" ? "closed" : "tier " + t, closed: "closed" },
     legendTitle: "Categories",
-    legendCats: { catA: "Chinese 齋", catB: "Modern plant-based", catC: "Mainstream w/ veg", catD: "Indian / ME / Med" },
+    legendCats: { catA: "Chinese 齋", catB: "Modern plant-based", catC: "Mainstream w/ veg menu", catD: "Indian / ME / Med" },
     legendNote: "Marker size = score.",
     aboutBtnTitle: "About", themeBtnTitle: "Toggle light/dark", langBtnTitle: "切換中文",
     langBtnLabel: "中",
@@ -700,13 +736,14 @@ const STRINGS = {
     anyVegType: "所有素食類型", veganOnly: "純素", jainOptions: "耆那素食",
     criticOnly: "獲評論機構認可", trustedReviews: "可靠評論", hideClosed: "隱藏結業",
     resetBtn: "重設",
-    catA: "中式齋菜", catB: "新派純素", catC: "主流餐廳", catD: "印／中東／地中海",
+    catA: "中式齋菜", catB: "新派純素", catC: "主流（含素菜單）", catD: "印／中東／地中海",
     statsShown: (s, t) => `顯示 ${s} ／ ${t} 間`,
     countShown: (n) => `· ${n} 間`,
     nothingMatches: "冇匹配結果。試吓重設篩選。",
+    dietLabel: "飲食類型", jainOnly: "耆那", veganBadge: "純素",
     popup: { type: "類型", district: "地區", address: "地址", phone: "電話", web: "網站／IG", hours: "營業時間", price: "人均", vegType: "素食類型", booking: "預約", jainPrefix: " · 耆那：", dishesLabel: "招牌／示範菜式", maps: "Google 地圖", call: "致電", website: "網站", status: "狀態：", reviewQ: "評論質素：", priceFmt: (p) => `HKD ${p} ／ 位`, tier: (t) => t === "—" ? "已結業" : t + " 級", closed: "已結業" },
     legendTitle: "分類",
-    legendCats: { catA: "中式齋菜", catB: "新派純素", catC: "主流（有素食）", catD: "印／中東／地中海" },
+    legendCats: { catA: "中式齋菜", catB: "新派純素", catC: "主流餐廳（含素菜單）", catD: "印／中東／地中海" },
     legendNote: "圖標大小＝分數。",
     aboutBtnTitle: "關於", themeBtnTitle: "切換淺／深色", langBtnTitle: "Switch to English",
     langBtnLabel: "EN",
@@ -852,7 +889,8 @@ function popupHtml(r) {
       <dt>${p.booking}</dt><dd>${escapeHtml(r.booking)}</dd>
     </dl>
     ${r.dishes ? `<div class="dishes"><div class="label">${p.dishesLabel}</div>${escapeHtml(r.dishes)}</div>` : ""}
-    ${ratings.length || (r.michelin && r.michelin !== "—") ? `<div class="ratings">
+    ${ratings.length || (r.michelin && r.michelin !== "—") || isVegan(r) ? `<div class="ratings">
+      ${isVegan(r) ? `<span class="rating vegan">🌱 ${s.veganBadge}</span>` : ""}
       ${ratings.map(x => `<span class="rating">${escapeHtml(x)}</span>`).join("")}
       ${r.michelin && r.michelin !== "—" ? `<span class="rating michelin">${escapeHtml(r.michelin)}</span>` : ""}
     </div>` : ""}
@@ -884,11 +922,31 @@ const markers = DATA.map(r => {
 });
 const layer = L.layerGroup(markers).addTo(map);
 
+// ─── Diet helpers ──────────────────────────────────────────
+// "Fully vegan" — only true when the PRIMARY classification is vegan/plant-based
+// AND the entry doesn't mention dairy/eggs as exceptions.
+// "Vegetarian (vegan options)" or "Mixed; full vegan section" do NOT qualify
+// — those are veg or non-veg places that happen to also have vegan items.
+function isVegan(r) {
+  const vt = (r.veg_type || "").trim().toLowerCase();
+  // Hard exclusion: any mention of dairy/eggs/meat means NOT fully vegan,
+  // even if labelled "plant-based" (e.g. MANA's "Plant-based (some dairy options)").
+  if (/\b(dairy|egg|eggs|meat|fish|seafood)\b/.test(vt)) return false;
+  // Strip parens, take the primary classification before any ; or , or /
+  const primary = vt.replace(/\([^)]*\)/g, "").split(/[;,/]/)[0].trim();
+  return ["vegan", "100% plant-based", "plant-based",
+          "100% vegan", "fully vegan"].includes(primary);
+}
+function isJainFriendly(r) {
+  const j = (r.jain || "").toLowerCase();
+  return j === "yes" || j.includes("yes") || j.includes("on request");
+}
+
 // ─── State / filters ───────────────────────────────────────
 const state = {
   cats: new Set(["A. Chinese / Buddhist 齋", "B. Modern Plant-Based / Fine", "C. Mainstream w/ Strong Veg", "D. Indian / ME / Med"]),
   tiers: new Set(["S","A","B","C","D"]),
-  q: "", veg: "", criticOnly: false, trustedOnly: false, hideClosed: true,
+  q: "", veganOnly: false, jainOnly: false, criticOnly: false, trustedOnly: false, hideClosed: true,
   minScore: 0,
 };
 
@@ -897,11 +955,8 @@ function passes(r) {
   if (state.hideClosed && (r.score === 0 || (r.status||"").toUpperCase().includes("CLOSED") || (r.status||"").toUpperCase().includes("UNCERTAIN"))) return false;
   if (state.tiers.size < 5 && !state.tiers.has(r.tier)) return false;
   if (r.score < state.minScore) return false;
-  if (state.veg === "vegan" && !(r.veg_type||"").toLowerCase().includes("vegan")) return false;
-  if (state.veg === "jain") {
-    const j = (r.jain||"").toLowerCase();
-    if (!(j === "yes" || j.includes("yes") || j.includes("on request"))) return false;
-  }
+  if (state.veganOnly && !isVegan(r)) return false;
+  if (state.jainOnly && !isJainFriendly(r)) return false;
   if (state.criticOnly) {
     const m = (r.michelin||"").toLowerCase();
     if (!m || m === "—") return false;
@@ -966,6 +1021,7 @@ function renderList() {
         <div class="meta">
           <span class="cat-pill" style="background:${r.color}">${catShort}</span>
           <span class="pill">${escapeHtml(r.district)}</span>
+          ${isVegan(r) ? `<span class="pill vegan">🌱 ${s.veganBadge}</span>` : ""}
           ${r.michelin && r.michelin !== "—" ? `<span class="pill michelin">${escapeHtml(shortMichelin(r.michelin))}</span>` : ""}
           ${closed ? `<span class="pill closed">${s.popup.closed}</span>` : ""}
         </div>
@@ -993,7 +1049,8 @@ document.querySelectorAll(".tier-chip").forEach(chip => {
 });
 const searchEl = document.getElementById("search");
 searchEl.addEventListener("input", e => { state.q = e.target.value.trim(); applyFilters(); });
-document.getElementById("veg-filter").addEventListener("change", e => { state.veg = e.target.value; applyFilters(); });
+document.getElementById("vegan-only").addEventListener("change", e => { state.veganOnly = e.target.checked; applyFilters(); });
+document.getElementById("jain-only").addEventListener("change", e => { state.jainOnly = e.target.checked; applyFilters(); });
 document.getElementById("critic-only").addEventListener("change", e => { state.criticOnly = e.target.checked; applyFilters(); });
 document.getElementById("trusted-only").addEventListener("change", e => { state.trustedOnly = e.target.checked; applyFilters(); });
 document.getElementById("hide-closed").addEventListener("change", e => { state.hideClosed = e.target.checked; applyFilters(); });
@@ -1005,11 +1062,12 @@ document.getElementById("score-slider").addEventListener("input", e => {
 document.getElementById("reset-btn").addEventListener("click", () => {
   state.cats = new Set(["A. Chinese / Buddhist 齋", "B. Modern Plant-Based / Fine", "C. Mainstream w/ Strong Veg", "D. Indian / ME / Med"]);
   state.tiers = new Set(["S","A","B","C","D"]);
-  state.q = ""; state.veg = ""; state.criticOnly = false; state.trustedOnly = false; state.hideClosed = true; state.minScore = 0;
+  state.q = ""; state.veganOnly = false; state.jainOnly = false; state.criticOnly = false; state.trustedOnly = false; state.hideClosed = true; state.minScore = 0;
   document.querySelectorAll("#cat-filters .chip").forEach(c => c.classList.add("active"));
   document.querySelectorAll(".tier-chip").forEach(c => c.classList.add("active"));
   searchEl.value = "";
-  document.getElementById("veg-filter").value = "";
+  document.getElementById("vegan-only").checked = false;
+  document.getElementById("jain-only").checked = false;
   document.getElementById("critic-only").checked = false;
   document.getElementById("trusted-only").checked = false;
   document.getElementById("hide-closed").checked = true;
