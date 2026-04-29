@@ -373,14 +373,17 @@
     .filter-toggle[aria-expanded="true"] { color: var(--text); border-color: var(--accent); }
     .filter-toggle[aria-expanded="true"]::after { transform: rotate(180deg); }
 
+    /* Mobile: keep display:flex (so transitions work), collapse via max-height */
     .filter-panel {
-      display: none;
-      flex-direction: column; gap: 9px;
-      max-height: 0; overflow: hidden;
+      max-height: 0;
+      overflow: hidden;
       transition: max-height 0.3s ease;
+      gap: 9px;
     }
     .filter-panel.open {
-      display: flex; max-height: 60vh; overflow-y: auto;
+      max-height: 70vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .header-buttons { display: none; }
 
